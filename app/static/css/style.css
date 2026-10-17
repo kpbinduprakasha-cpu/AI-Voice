@@ -1,0 +1,281 @@
+:root {
+  --bg: #07111f;
+  --panel: rgba(14, 28, 48, 0.82);
+  --line: rgba(140, 190, 255, 0.18);
+  --text: #e8f1ff;
+  --muted: #9bb0c9;
+  --accent: #4cc9f0;
+  --accent-2: #7c5cff;
+  --danger: #ff6b8a;
+  --ok: #5ee0a8;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  background: radial-gradient(circle at top, #102544, var(--bg) 45%);
+  color: var(--text);
+}
+
+.bg-glow {
+  position: fixed;
+  inset: auto -10% 20% auto;
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, rgba(124, 92, 255, 0.28), transparent 70%);
+  pointer-events: none;
+}
+
+.topbar,
+.layout,
+.history-panel,
+footer {
+  width: min(1100px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  padding: 28px 0 12px;
+  gap: 16px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+h1,
+h2 {
+  margin: 6px 0;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 18px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+}
+
+.recorder {
+  text-align: center;
+}
+
+.stage-label {
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mic-button {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #1c3b63, #10233c);
+  color: white;
+  cursor: pointer;
+}
+
+.mic-button.recording {
+  background: linear-gradient(180deg, #7c5cff, #2b1a73);
+}
+
+.mic-ring {
+  position: absolute;
+  inset: -10px;
+  border: 2px solid rgba(76, 201, 240, 0.4);
+  border-radius: 50%;
+}
+
+.mic-button.recording .mic-ring {
+  animation: pulse 1.2s ease-out infinite;
+}
+
+.mic-icon {
+  font-size: 42px;
+}
+
+.timer {
+  font-size: 28px;
+  margin: 8px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.hint,
+.body-text,
+footer,
+.history-panel p {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.controls.compact {
+  justify-content: flex-start;
+  margin-top: 12px;
+}
+
+button,
+.upload-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: #143255;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+#askBtn,
+#startBtn {
+  background: linear-gradient(90deg, var(--accent-2), #3a7bd5);
+}
+
+.ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+.panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.body-text {
+  min-height: 72px;
+  background: rgba(7, 17, 31, 0.45);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+audio {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.progress {
+  margin-top: 18px;
+}
+
+.progress-bar {
+  height: 8px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent));
+  background-size: 200% 100%;
+  animation: load 1.4s linear infinite;
+}
+
+.status-chip {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(94, 224, 168, 0.12);
+  color: var(--ok);
+  font-size: 13px;
+}
+
+.status-chip.warn {
+  background: rgba(255, 107, 138, 0.12);
+  color: var(--danger);
+}
+
+.history-panel {
+  margin: 18px auto 24px;
+}
+
+.history-item {
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+}
+
+.history-item strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.error-banner {
+  position: sticky;
+  bottom: 12px;
+  width: min(1100px, calc(100% - 32px));
+  margin: 0 auto 16px;
+  background: rgba(255, 107, 138, 0.15);
+  border: 1px solid var(--danger);
+  color: #ffd7e0;
+  padding: 12px 16px;
+  border-radius: 14px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+footer {
+  padding-bottom: 24px;
+  font-size: 13px;
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(0.92);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(1.12);
+    opacity: 0;
+  }
+}
+
+@keyframes load {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+@media (max-width: 860px) {
+  .layout,
+  .topbar {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .topbar {
+    align-items: start;
+  }
+}

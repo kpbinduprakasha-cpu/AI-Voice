@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Voice Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <div class="bg-glow"></div>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">College study companion</p>
+        <h1>AI Voice Assistant</h1>
+      </div>
+      <p class="status-chip" id="connectionStatus">Checking health…</p>
+    </header>
+
+    <main class="layout">
+      <section class="panel recorder">
+        <p class="stage-label" id="stageLabel">Ready</p>
+        <button class="mic-button" id="micButton" type="button" aria-label="Start recording">
+          <span class="mic-ring"></span>
+          <span class="mic-icon">🎤</span>
+        </button>
+        <p class="timer" id="timer">00:00</p>
+        <p class="hint" id="statusText">Tap the microphone or upload an audio file. Nothing is sent until you click Ask Assistant.</p>
+
+        <div class="controls">
+          <button id="startBtn" type="button">Start recording</button>
+          <button id="stopBtn" type="button" disabled>Stop recording</button>
+          <button id="askBtn" type="button" disabled>Ask Assistant</button>
+          <label class="upload-btn">
+            Upload audio
+            <input id="fileInput" type="file" accept="audio/*,video/webm,.wav,.mp3,.webm,.ogg,.m4a,.mp4" hidden />
+          </label>
+        </div>
+
+        <div class="progress hidden" id="progress">
+          <div class="progress-bar"></div>
+          <p id="progressText">Processing</p>
+        </div>
+      </section>
+
+      <section class="panel results">
+        <article>
+          <div class="panel-heading">
+            <h2>Transcript</h2>
+            <button class="ghost" id="copyTranscript" type="button">Copy</button>
+          </div>
+          <p class="body-text" id="transcript">Your spoken question will appear here.</p>
+        </article>
+        <article>
+          <div class="panel-heading">
+            <h2>AI response</h2>
+            <button class="ghost" id="copyAnswer" type="button">Copy</button>
+          </div>
+          <p class="body-text" id="answer">The assistant answer will appear here.</p>
+          <audio id="player" controls></audio>
+          <div class="controls compact">
+            <button id="replayBtn" type="button" disabled>Replay audio</button>
+            <button id="clearBtn" type="button">Clear conversation</button>
+          </div>
+        </article>
+      </section>
+    </main>
+
+    <section class="panel history-panel">
+      <h2>Session history</h2>
+      <p class="hint">Stored only in this browser tab session. It is not saved on the server.</p>
+      <div id="history" class="history-list"></div>
+    </section>
+
+    <p class="error-banner hidden" id="errorBanner" role="alert"></p>
+
+    <footer>
+      <p>Maximum recording: {{ max_duration }} seconds · Maximum upload: {{ max_size_mb }} MB</p>
+    </footer>
+    <script src="/static/js/app.js"></script>
+  </body>
+</html>

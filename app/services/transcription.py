@@ -90,19 +90,50 @@ def _transcribe_openai(path: Path) -> str:
     return str(text or "")
 
 
+_whisper_cache: dict[tuple[str, str, str], object] = {}
+
+
+def _patch_av_open() -> None:
+    """Ensure PyAV versions that dropped `metadata_errors` work with faster-whisper."""
+    try:
+        import av
+
+        if not getattr(av, "_patched_for_metadata_errors", False):
+            orig_open = av.open
+
+            def _safe_open(*args, **kwargs):
+                kwargs.pop("metadata_errors", None)
+                return orig_open(*args, **kwargs)
+
+            av.open = _safe_open  # type: ignore[assignment]
+            av._patched_for_metadata_errors = True  # type: ignore[attr-defined]
+    except Exception:
+        pass
+
+
+def _get_whisper_model(model_name: str, device: str, compute_type: str):
+    _patch_av_open()
+    from faster_whisper import WhisperModel
+
+    key = (model_name, device, compute_type)
+    if key not in _whisper_cache:
+        _whisper_cache[key] = WhisperModel(model_name, device=device, compute_type=compute_type)
+    return _whisper_cache[key]
+
+
 def _transcribe_faster_whisper(path: Path) -> str:
     try:
-        from faster_whisper import WhisperModel
+        import faster_whisper  # noqa: F401
     except ImportError as exc:
         raise ConfigurationError(
             "faster-whisper is not installed. Run: pip install faster-whisper"
         ) from exc
 
     try:
-        model = WhisperModel(
+        model = _get_whisper_model(
             settings.faster_whisper_model,
-            device=settings.faster_whisper_device,
-            compute_type="int8" if settings.faster_whisper_device == "cpu" else "float16",
+            settings.faster_whisper_device,
+            "int8" if settings.faster_whisper_device == "cpu" else "float16",
         )
         language = settings.transcription_language or None
         segments, _info = model.transcribe(str(path), language=language)

@@ -10,8 +10,8 @@ aiofiles>=24.1.0
 pytest>=8.3.0
 pyttsx3>=2.90
 
-# Optional local speech-to-text (large download; may not install on every Python version):
-# faster-whisper>=1.1.0
+# Local speech-to-text:
+faster-whisper>=1.1.0
 
 # Optional neural TTS that uses Microsoft Edge voices over the network (no API key):
 # edge-tts>=6.1.0

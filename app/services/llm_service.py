@@ -33,7 +33,7 @@ def answer_from_text(user_text: str) -> str:
             f"Unsupported LLM provider '{provider}'. Use gemini, openai or ollama."
         )
 
-    final = " ".join(answer.split()).strip()
+    final = (answer or "").strip()
     if not final:
         raise LLMError("The language model returned an empty answer.")
     return final
@@ -112,6 +112,10 @@ def _answer_ollama(user_text: str) -> str:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_text},
         ],
+        "options": {
+            "num_predict": 280,
+            "temperature": 0.3,
+        },
         "stream": False,
     }
     try:

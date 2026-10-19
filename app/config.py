@@ -50,7 +50,7 @@ class Settings(BaseSettings):
 
     max_audio_size_mb: float = 20
     max_audio_duration_seconds: int = 120
-    request_timeout_seconds: float = 90
+    request_timeout_seconds: float = 180
     generated_audio_retention_minutes: int = 60
 
     cors_origins: str = ""

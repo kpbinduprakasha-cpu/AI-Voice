@@ -74,13 +74,13 @@
       if (!res.ok) throw new Error("Health check failed");
       const data = await res.json();
 
-      let displayName = "Google Gemini";
+      let displayName = "K P Air";
       if (data.llm_provider === "gemini") {
-        displayName = "Gemini 3.8 Flash";
+        displayName = "K P Air (Gemini)";
       } else if (data.llm_provider === "ollama") {
-        displayName = `Ollama (${data.llm_model})`;
+        displayName = `K P Air (${data.llm_model})`;
       } else if (data.llm_provider === "openai") {
-        displayName = "OpenAI";
+        displayName = "K P Air (OpenAI)";
       }
 
       providerName.textContent = displayName;
@@ -304,10 +304,8 @@
     row.innerHTML = `
       <div class="message-bubble">
         <div class="assistant-header">
-          <svg class="gemini-star" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
-          </svg>
-          Gemini
+          <img class="assistant-avatar" src="/static/img/kp_air_logo.png" alt="K P Air" />
+          <span>K P Air</span>
         </div>
         <p class="assistant-text" style="color: var(--text-muted); font-style: italic;">${escapeHtml(text)}</p>
       </div>`;
@@ -320,10 +318,8 @@
     const bubble = row.querySelector(".message-bubble");
     bubble.innerHTML = `
       <div class="assistant-header">
-        <svg class="gemini-star" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
-        </svg>
-        Gemini
+        <img class="assistant-avatar" src="/static/img/kp_air_logo.png" alt="K P Air" />
+        <span>K P Air</span>
       </div>
       <div class="assistant-text">${escapeHtml(text)}</div>
       <div class="assistant-actions">

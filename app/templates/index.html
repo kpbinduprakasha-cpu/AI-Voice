@@ -3,11 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>AI Voice Assistant — Powered by Google Gemini</title>
-    <meta name="theme-color" content="#131314" />
+    <title>K P Air — AI Voice Assistant</title>
+    <meta name="theme-color" content="#0d0d0d" />
+    <link rel="icon" type="image/png" href="/static/img/kp_air_logo.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/static/css/style.css" />
   </head>
   <body>
@@ -20,17 +21,15 @@
         </div>
       </div>
       <div class="header-center">
-        <span class="brand-tag">
-          <svg class="gemini-star" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
-          </svg>
-          Google Gemini Assistant
-        </span>
+        <div class="brand-tag">
+          <img class="header-logo" src="/static/img/kp_air_logo.png" alt="K P Air Logo" />
+          <span class="brand-name">K P Air</span>
+        </div>
       </div>
       <div class="header-right">
-        <div class="provider-badge" id="providerBadge" title="Click to view provider settings">
+        <div class="provider-badge" id="providerBadge" title="Engine Status">
           <span class="status-dot"></span>
-          <span id="providerName">Gemini 3.8 Flash</span>
+          <span id="providerName">K P Air AI</span>
         </div>
       </div>
     </header>
@@ -39,7 +38,11 @@
     <main class="chat-container">
       <!-- Welcome Hero (shown when no messages) -->
       <section class="welcome-hero" id="welcomeHero">
-        <h1 class="hero-title">What's on your mind today?</h1>
+        <div class="hero-logo-wrapper">
+          <img class="hero-big-logo" src="/static/img/kp_air_logo.png" alt="K P Air Logo" />
+        </div>
+        <h1 class="hero-title">K P Air</h1>
+        <p class="hero-subtitle">What's on your mind today?</p>
       </section>
 
       <!-- Message History Thread -->
@@ -51,7 +54,7 @@
       <audio id="audioPlayer" preload="auto"></audio>
     </main>
 
-    <!-- Bottom Dock / Chat & Voice Bar (ChatGPT / Gemini style) -->
+    <!-- Bottom Dock / Chat & Voice Bar -->
     <footer class="dock-container">
       <div class="dock-wrapper">
         <!-- Error Banner -->
@@ -64,7 +67,7 @@
         <!-- Recording HUD overlay -->
         <div class="recording-hud hidden" id="recordingHud">
           <div class="pulse-ring"></div>
-          <span class="hud-status">Listening…</span>
+          <span class="hud-status">K P Air is listening…</span>
           <span class="hud-timer" id="recordingTimer">00:00</span>
           <div class="wave-bars">
             <span></span><span></span><span></span><span></span><span></span>
@@ -88,7 +91,7 @@
             id="textInput"
             class="chat-textarea"
             rows="1"
-            placeholder="Ask Gemini or start speaking…"
+            placeholder="Ask K P Air or start speaking…"
             aria-label="Message input"
           ></textarea>
 
@@ -102,7 +105,7 @@
           </button>
 
           <!-- Mic button (Record Voice) -->
-          <button class="icon-btn mic-btn" id="micBtn" type="button" title="Speak to Gemini" aria-label="Microphone">
+          <button class="icon-btn mic-btn" id="micBtn" type="button" title="Speak to K P Air" aria-label="Microphone">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
               <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
@@ -110,7 +113,7 @@
             </svg>
           </button>
 
-          <!-- Blue Waveform / Live Voice Button (as shown in ChatGPT/Gemini screenshot) -->
+          <!-- Blue Waveform / Live Voice Button -->
           <button class="waveform-btn" id="liveVoiceBtn" type="button" title="Live Voice Mode" aria-label="Start Voice Mode">
             <div class="wave-graphic">
               <span></span>
@@ -121,7 +124,7 @@
           </button>
         </div>
 
-        <!-- Suggestion Chips (matching screenshot) -->
+        <!-- Suggestion Chips -->
         <div class="suggestion-chips" id="suggestionChips">
           <button class="chip" data-prompt="Help me write and edit a clear summary of this topic:" type="button">
             <span class="chip-icon">✏️</span>

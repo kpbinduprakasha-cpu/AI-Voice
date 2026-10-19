@@ -85,17 +85,25 @@ body {
 .brand-tag {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  letter-spacing: 0.02em;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.01em;
 }
 
-.gemini-star {
-  width: 17px;
-  height: 17px;
-  color: var(--gemini-sparkle);
+.header-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
 }
 
 .provider-badge {
@@ -139,17 +147,58 @@ body {
 .welcome-hero {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
   padding: 40px 20px;
+  gap: 12px;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.hero-logo-wrapper {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.22), transparent 70%);
+  margin-bottom: 4px;
+}
+
+.hero-big-logo {
+  width: 124px;
+  height: 124px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2.5px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65), 0 0 30px rgba(37, 99, 235, 0.35);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.hero-big-logo:hover {
+  transform: scale(1.06);
 }
 
 .hero-title {
-  font-size: 30px;
-  font-weight: 600;
-  color: #f5f5f5;
-  letter-spacing: -0.02em;
+  font-size: 38px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #ffffff 40%, #93c5fd 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin: 0;
+}
+
+.hero-subtitle {
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+  margin: 0;
 }
 
 /* ==========================================================================
@@ -204,9 +253,17 @@ body {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--gemini-sparkle);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.assistant-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 
 .assistant-text {

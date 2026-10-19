@@ -38,39 +38,39 @@
   --chip-border: #3f3f46;
 }
 
-/* Day Type (Light Mode) */
+/* Day Type (Light Pink Environment) */
 [data-theme="day"] {
-  --bg-primary: #f3f4f8;
+  --bg-primary: #fce4ec;
   --bg-secondary: #ffffff;
-  --bg-header: rgba(255, 255, 255, 0.95);
-  --border-color: #e5e7eb;
-  --border-subtle: #f3f4f6;
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-muted: #9ca3af;
+  --bg-header: rgba(252, 228, 236, 0.94);
+  --border-color: #f8bbd0;
+  --border-subtle: #fce4ec;
+  --text-primary: #1f1b24;
+  --text-secondary: #4a4550;
+  --text-muted: #8b8090;
 
-  /* Chat Bubbles (Day type - like Image 1) */
-  --bubble-user-bg: #6366f1;
+  /* Chat Bubbles (Day type - Light Pink Theme) */
+  --bubble-user-bg: #e11d48;
   --bubble-user-text: #ffffff;
   --bubble-assistant-bg: #ffffff;
-  --bubble-assistant-text: #1f2937;
-  --bubble-assistant-border: #e2e8f0;
+  --bubble-assistant-text: #1f1b24;
+  --bubble-assistant-border: #f8bbd0;
 
   /* Input Dock */
   --dock-bg: #ffffff;
-  --dock-border: #d1d5db;
-  --dock-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-  --input-text: #111827;
-  --input-placeholder: #9ca3af;
+  --dock-border: #f8bbd0;
+  --dock-shadow: 0 10px 30px rgba(225, 29, 72, 0.08);
+  --input-text: #1f1b24;
+  --input-placeholder: #8b8090;
 
   /* Accents */
-  --accent-blue: #4f46e5;
-  --accent-glow: #6366f1;
-  --code-bg: #f8fafc;
-  --code-header: #e2e8f0;
+  --accent-blue: #db2777;
+  --accent-glow: #f472b6;
+  --code-bg: #fff5f8;
+  --code-header: #fce4ec;
   --chip-bg: #ffffff;
-  --chip-text: #374151;
-  --chip-border: #e5e7eb;
+  --chip-text: #831843;
+  --chip-border: #f8bbd0;
 }
 
 * {

@@ -90,7 +90,7 @@
     if (theme === "day") {
       themeIcon.textContent = "☀️";
       themeText.textContent = "Day";
-      document.querySelector('meta[name="theme-color"]').setAttribute("content", "#f3f4f8");
+      document.querySelector('meta[name="theme-color"]').setAttribute("content", "#fce4ec");
     } else {
       themeIcon.textContent = "🌙";
       themeText.textContent = "Night";

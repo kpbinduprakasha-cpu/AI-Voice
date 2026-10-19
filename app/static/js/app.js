@@ -27,6 +27,8 @@
   let recordSeconds = 0;
   let isThinking = false;
   let isBusy = false;
+  let activeAudioBtn = null;
+  let isLiveVoiceMode = false;
 
   // Session Chat History
   const chatHistory = JSON.parse(sessionStorage.getItem("chatHistory") || "[]");
@@ -42,13 +44,17 @@
     textInput.addEventListener("keydown", handleTextKeydown);
     textInput.addEventListener("input", autoResizeTextarea);
     micBtn.addEventListener("click", toggleRecording);
-    liveVoiceBtn.addEventListener("click", toggleRecording);
+    liveVoiceBtn.addEventListener("click", handleLiveVoiceClick);
     thinkBtn.addEventListener("click", toggleThinkMode);
     cancelRecordingBtn.addEventListener("click", cancelRecording);
     finishRecordingBtn.addEventListener("click", finishRecording);
     audioFileInput.addEventListener("change", handleFileSelected);
     toastClose.addEventListener("click", hideError);
     clearChatChip.addEventListener("click", clearConversation);
+
+    // Audio player event listeners to reset play/stop buttons
+    audioPlayer.addEventListener("ended", onAudioFinished);
+    audioPlayer.addEventListener("pause", onAudioFinished);
 
     // Suggestion chips
     document.querySelectorAll(".chip[data-prompt]").forEach((chip) => {
@@ -114,6 +120,7 @@
   async function sendTextMessage(message) {
     isBusy = true;
     hideError();
+    stopAudio();
     textInput.value = "";
     autoResizeTextarea();
 
@@ -136,8 +143,9 @@
       updateAssistantMessage(assistantBubble, data.answer, data.audio_url);
       saveChatTurn(message, data.answer, data.audio_url);
 
-      if (data.audio_url) {
-        playAudio(data.audio_url);
+      // In typed chat mode, we do NOT force auto-play so user can read quietly or click Listen
+      if (isLiveVoiceMode && data.audio_url) {
+        playAudio(data.audio_url, assistantBubble.querySelector(".play-audio-btn"));
       }
     } catch (err) {
       removeLoadingMessage(assistantBubble);
@@ -147,8 +155,32 @@
     }
   }
 
+  // Live Voice Button: handles start voice / stop voice / stop playback
+  function handleLiveVoiceClick() {
+    // If audio is currently playing, clicking blue button immediately stops voice!
+    if (!audioPlayer.paused && audioPlayer.src) {
+      stopAudio();
+      return;
+    }
+
+    // If currently recording, finish and send
+    if (isRecording) {
+      finishRecording();
+      return;
+    }
+
+    // Otherwise, start live voice recording
+    isLiveVoiceMode = true;
+    startRecording();
+  }
+
   // Voice Recording Logic
   async function toggleRecording() {
+    // If audio is playing, stop it first
+    if (!audioPlayer.paused && audioPlayer.src) {
+      stopAudio();
+    }
+
     if (isRecording) {
       finishRecording();
     } else {
@@ -158,6 +190,7 @@
 
   async function startRecording() {
     hideError();
+    stopAudio();
     if (isBusy) return;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -240,6 +273,7 @@
   async function uploadAudioBlob(fileOrBlob, filename) {
     isBusy = true;
     hideError();
+    stopAudio();
 
     const assistantBubble = appendLoadingMessage("Listening & transcribing your voice…");
 
@@ -261,8 +295,10 @@
       updateAssistantMessage(assistantBubble, data.answer, data.audio_url);
       saveChatTurn(data.transcript, data.answer, data.audio_url);
 
+      // Auto-play speech when asked by voice, and attach the stop toggle button
       if (data.audio_url) {
-        playAudio(data.audio_url);
+        const playBtn = assistantBubble.querySelector(".play-audio-btn");
+        playAudio(data.audio_url, playBtn);
       }
     } catch (err) {
       removeLoadingMessage(assistantBubble);
@@ -272,11 +308,46 @@
     }
   }
 
-  // Audio Playback
-  function playAudio(url) {
+  // Audio Playback & Stop Voice Control
+  function playAudio(url, btnElement = null) {
     if (!url) return;
+
+    // Reset previous button state if any
+    if (activeAudioBtn && activeAudioBtn !== btnElement) {
+      activeAudioBtn.innerHTML = "🔊 Listen";
+      activeAudioBtn.classList.remove("playing");
+    }
+
     audioPlayer.src = url;
-    audioPlayer.play().catch(() => {});
+    audioPlayer.play().then(() => {
+      activeAudioBtn = btnElement;
+      if (activeAudioBtn) {
+        activeAudioBtn.innerHTML = "⏹️ Stop voice";
+        activeAudioBtn.classList.add("playing");
+      }
+      liveVoiceBtn.classList.add("active");
+    }).catch(() => {
+      onAudioFinished();
+    });
+  }
+
+  function stopAudio() {
+    if (audioPlayer) {
+      audioPlayer.pause();
+      audioPlayer.currentTime = 0;
+    }
+    onAudioFinished();
+  }
+
+  function onAudioFinished() {
+    if (activeAudioBtn) {
+      activeAudioBtn.innerHTML = "🔊 Listen";
+      activeAudioBtn.classList.remove("playing");
+      activeAudioBtn = null;
+    }
+    if (!isRecording) {
+      liveVoiceBtn.classList.remove("active");
+    }
   }
 
   // Chat UI Rendering
@@ -316,18 +387,20 @@
 
   function updateAssistantMessage(row, text, audioUrl) {
     const bubble = row.querySelector(".message-bubble");
+    const formattedHtml = renderMarkdown(text);
+
     bubble.innerHTML = `
       <div class="assistant-header">
         <img class="assistant-avatar" src="/static/img/kp_air_logo.png" alt="K P Air" />
         <span>K P Air</span>
       </div>
-      <div class="assistant-text">${escapeHtml(text)}</div>
+      <div class="assistant-text">${formattedHtml}</div>
       <div class="assistant-actions">
         ${audioUrl ? `<button class="action-btn play-audio-btn" data-url="${escapeHtml(audioUrl)}" type="button">🔊 Listen</button>` : ""}
         <button class="action-btn copy-btn" type="button">📋 Copy</button>
       </div>`;
 
-    // Action listeners
+    // Copy action
     const copyBtn = bubble.querySelector(".copy-btn");
     copyBtn.addEventListener("click", () => {
       navigator.clipboard.writeText(text).then(() => {
@@ -336,10 +409,15 @@
       });
     });
 
+    // Listen / Stop Voice toggle action
     const playBtn = bubble.querySelector(".play-audio-btn");
     if (playBtn) {
       playBtn.addEventListener("click", () => {
-        playAudio(audioUrl);
+        if (!audioPlayer.paused && audioPlayer.src.includes(audioUrl)) {
+          stopAudio();
+        } else {
+          playAudio(audioUrl, playBtn);
+        }
       });
     }
 
@@ -379,6 +457,7 @@
   }
 
   function clearConversation() {
+    stopAudio();
     chatHistory.length = 0;
     sessionStorage.removeItem("chatHistory");
     messagesThread.innerHTML = "";
@@ -420,5 +499,79 @@
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");
+  }
+
+  // Full Markdown Renderer: converts bold **text**, headings, code blocks, lists
+  function renderMarkdown(rawText) {
+    if (!rawText) return "";
+
+    // 1. Code blocks ```lang ... ```
+    let text = rawText.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+      return `<div class="code-box"><div class="code-header"><span>${escapeHtml(lang || "code")}</span><button class="copy-code-btn" type="button" onclick="navigator.clipboard.writeText(this.closest('.code-box').querySelector('code').innerText); this.textContent='✓ Copied'; setTimeout(()=>this.textContent='Copy', 1500);">Copy</button></div><pre><code>${escapeHtml(code.trim())}</code></pre></div>`;
+    });
+
+    // 2. Inline code `code`
+    text = text.replace(/`([^`\n]+)`/g, (match, code) => `<code class="inline-code">${escapeHtml(code)}</code>`);
+
+    // 3. Headings ###, ##, #
+    text = text.replace(/^### (.*$)/gim, '<h3 class="md-h3">$1</h3>');
+    text = text.replace(/^## (.*$)/gim, '<h2 class="md-h2">$1</h2>');
+    text = text.replace(/^# (.*$)/gim, '<h1 class="md-h1">$1</h1>');
+
+    // 4. Bold text **text** and __text__
+    text = text.replace(/\*\*(.*?)\*\*/g, '<strong class="md-bold">$1</strong>');
+    text = text.replace(/__(.*?)__/g, '<strong class="md-bold">$1</strong>');
+
+    // 5. Italic text *text* and _text_
+    text = text.replace(/\*([^*\n]+)\*/g, '<em class="md-italic">$1</em>');
+    text = text.replace(/_([^_\n]+)_/g, '<em class="md-italic">$1</em>');
+
+    // 6. Bullet lists (- or *)
+    text = text.replace(/^\s*[-*]\s+(.*)$/gim, '<li class="md-li">$1</li>');
+
+    // 7. Numbered lists (1. or 2.)
+    text = text.replace(/^\s*\d+\.\s+(.*)$/gim, '<li class="md-oli">$1</li>');
+
+    // 8. Paragraphs and line handling
+    const rawLines = text.split("\n");
+    const formatted = [];
+    let inList = false;
+
+    for (let rawLine of rawLines) {
+      const line = rawLine.trim();
+      if (!line) {
+        if (inList) {
+          formatted.push("</ul>");
+          inList = false;
+        }
+        formatted.push('<div class="md-spacer"></div>');
+      } else if (line.startsWith('<li class="md-li">') || line.startsWith('<li class="md-oli">')) {
+        if (!inList) {
+          formatted.push('<ul class="md-ul">');
+          inList = true;
+        }
+        formatted.push(line);
+      } else {
+        if (inList) {
+          formatted.push("</ul>");
+          inList = false;
+        }
+        if (
+          line.startsWith('<div class="code-box"') ||
+          line.startsWith("<h1") ||
+          line.startsWith("<h2") ||
+          line.startsWith("<h3")
+        ) {
+          formatted.push(line);
+        } else {
+          formatted.push(`<p class="md-p">${line}</p>`);
+        }
+      }
+    }
+    if (inList) {
+      formatted.push("</ul>");
+    }
+
+    return formatted.join("");
   }
 })();

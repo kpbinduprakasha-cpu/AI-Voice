@@ -17,13 +17,15 @@ def transcribe_audio(audio_path: Path) -> str:
     _validate_audio_file(path)
 
     provider = settings.resolved_transcription_provider()
-    if provider == "openai":
+    if provider == "gemini":
+        transcript = _transcribe_gemini(path)
+    elif provider == "openai":
         transcript = _transcribe_openai(path)
     elif provider == "faster-whisper":
         transcript = _transcribe_faster_whisper(path)
     else:
         raise ConfigurationError(
-            f"Unsupported transcription provider '{provider}'. Use openai or faster-whisper."
+            f"Unsupported transcription provider '{provider}'. Use gemini, openai or faster-whisper."
         )
 
     cleaned = " ".join(transcript.split()).strip()
@@ -54,6 +56,55 @@ def _validate_audio_file(path: Path) -> None:
             f"Unsupported audio format '{suffix or 'unknown'}'. "
             "Use WAV, MP3, WEBM, OGG, M4A, or MP4."
         )
+
+
+def _transcribe_gemini(path: Path) -> str:
+    import base64
+    import os
+
+    try:
+        from google import genai
+    except ImportError as exc:
+        raise ConfigurationError(
+            "google-genai is not installed. Run: pip install google-genai"
+        ) from exc
+
+    api_key = (
+        settings.gemini_api_key.strip()
+        or os.getenv("GEMINI_API_KEY", "").strip()
+        or os.getenv("GOOGLE_API_KEY", "").strip()
+    )
+
+    client = genai.Client(api_key=api_key or None)
+
+    suffix = path.suffix.lower()
+    mime_map = {
+        ".wav": "audio/wav",
+        ".mp3": "audio/mp3",
+        ".webm": "audio/webm",
+        ".ogg": "audio/ogg",
+        ".m4a": "audio/m4a",
+        ".mp4": "audio/mp4",
+        ".flac": "audio/flac",
+    }
+    mime_type = mime_map.get(suffix, "audio/wav")
+
+    try:
+        audio_bytes = path.read_bytes()
+        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+        interaction = client.interactions.create(
+            model=settings.gemini_model or "gemini-3.8-flash",
+            input=[
+                {
+                    "type": "text",
+                    "text": "Transcribe this audio verbatim into text. Output ONLY the exact transcribed words and punctuation, with no added explanation.",
+                },
+                {"type": "audio", "data": audio_b64, "mime_type": mime_type},
+            ],
+        )
+        return str(interaction.output_text or "").strip()
+    except Exception as exc:
+        raise TranscriptionError(f"Google Gemini transcription failed: {exc}") from exc
 
 
 def _transcribe_openai(path: Path) -> str:

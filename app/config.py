@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
 
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.8-flash"
+
     transcription_provider: str = ""
     llm_provider: str = ""
     tts_provider: str = ""
@@ -78,22 +81,30 @@ class Settings(BaseSettings):
         return [item.strip() for item in self.cors_origins.split(",") if item.strip()]
 
     def resolved_transcription_provider(self) -> str:
-        return self.transcription_provider or self.ai_provider
+        provider = self.transcription_provider or self.ai_provider
+        if provider in {"gemini", "google"}:
+            return "gemini"
+        return provider
 
     def resolved_llm_provider(self) -> str:
         provider = self.llm_provider or self.ai_provider
+        if provider in {"gemini", "google"}:
+            return "gemini"
         if provider in {"faster-whisper", "pyttsx3", "edge-tts"}:
             return "openai"
         return provider
 
     def resolved_tts_provider(self) -> str:
         provider = self.tts_provider or self.ai_provider
-        if provider in {"faster-whisper", "ollama"}:
+        if provider in {"faster-whisper", "ollama", "gemini", "google"}:
             return "pyttsx3"
         return provider
 
     def resolved_llm_model(self) -> str:
-        if self.resolved_llm_provider() == "ollama":
+        provider = self.resolved_llm_provider()
+        if provider == "gemini":
+            return self.gemini_model
+        if provider == "ollama":
             return self.ollama_model or self.llm_model
         return self.llm_model
 
@@ -107,13 +118,15 @@ class Settings(BaseSettings):
                 self._require_openai()
                 if not self.transcription_model:
                     raise ConfigurationError("TRANSCRIPTION_MODEL is not set.")
+            elif provider == "gemini":
+                self._require_gemini()
             elif provider == "faster-whisper":
                 if not self.faster_whisper_model:
                     raise ConfigurationError("FASTER_WHISPER_MODEL is not set.")
             else:
                 raise ConfigurationError(
                     f"Unsupported transcription provider '{provider}'. "
-                    "Use openai or faster-whisper."
+                    "Use gemini, openai or faster-whisper."
                 )
         elif stage == "llm":
             provider = self.resolved_llm_provider()
@@ -121,6 +134,8 @@ class Settings(BaseSettings):
                 self._require_openai()
                 if not self.llm_model:
                     raise ConfigurationError("LLM_MODEL is not set.")
+            elif provider == "gemini":
+                self._require_gemini()
             elif provider == "ollama":
                 if not self.ollama_base_url:
                     raise ConfigurationError("OLLAMA_BASE_URL is not set.")
@@ -128,7 +143,7 @@ class Settings(BaseSettings):
                     raise ConfigurationError("OLLAMA_MODEL or LLM_MODEL is not set.")
             else:
                 raise ConfigurationError(
-                    f"Unsupported LLM provider '{provider}'. Use openai or ollama."
+                    f"Unsupported LLM provider '{provider}'. Use gemini, openai or ollama."
                 )
         elif stage == "tts":
             provider = self.resolved_tts_provider()
@@ -151,6 +166,21 @@ class Settings(BaseSettings):
         if not self.openai_api_key.strip():
             raise ConfigurationError(
                 "OPENAI_API_KEY is missing. Set it in the .env file for OpenAI-compatible APIs, "
+                "or switch to local providers (faster-whisper, ollama, pyttsx3) or Google Gemini."
+            )
+
+    def _require_gemini(self) -> None:
+        import os
+        from app.errors import ConfigurationError
+
+        key = (
+            self.gemini_api_key.strip()
+            or os.getenv("GEMINI_API_KEY", "").strip()
+            or os.getenv("GOOGLE_API_KEY", "").strip()
+        )
+        if not key:
+            raise ConfigurationError(
+                "GEMINI_API_KEY is missing. Add your Google Gemini API key to .env, "
                 "or switch to local providers (faster-whisper, ollama, pyttsx3)."
             )
 

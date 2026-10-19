@@ -10,6 +10,9 @@ aiofiles>=24.1.0
 pytest>=8.3.0
 pyttsx3>=2.90
 
+# Google Gemini Framework:
+google-genai>=2.30.0
+
 # Local speech-to-text:
 faster-whisper>=1.1.0
 

@@ -89,6 +89,21 @@ def test_valid_upload_with_mocked_pipeline(wav_file):
     assert body["audio_url"].startswith("/api/audio/")
 
 
+def test_chat_endpoint_success():
+    with patch("app.api.voice.answer_from_text", return_value="Gemini answered clearly."):
+        response = client.post("/api/chat", json={"message": "Hello Gemini", "voice": False})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["transcript"] == "Hello Gemini"
+    assert data["answer"] == "Gemini answered clearly."
+
+
+def test_chat_endpoint_empty_input():
+    response = client.post("/api/chat", json={"message": "   ", "voice": False})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "empty_input"
+
+
 def test_temporary_upload_is_deleted(wav_file):
     ensure_directories()
     before = {path.name for path in UPLOAD_DIR.glob("*")}

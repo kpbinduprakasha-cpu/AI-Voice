@@ -1,322 +1,426 @@
 (() => {
-  const maxDuration = 120;
-  const micButton = document.getElementById("micButton");
-  const startBtn = document.getElementById("startBtn");
-  const stopBtn = document.getElementById("stopBtn");
-  const askBtn = document.getElementById("askBtn");
-  const fileInput = document.getElementById("fileInput");
-  const timerEl = document.getElementById("timer");
-  const statusText = document.getElementById("statusText");
-  const stageLabel = document.getElementById("stageLabel");
-  const progress = document.getElementById("progress");
-  const progressText = document.getElementById("progressText");
-  const transcriptEl = document.getElementById("transcript");
-  const answerEl = document.getElementById("answer");
-  const player = document.getElementById("player");
-  const replayBtn = document.getElementById("replayBtn");
-  const clearBtn = document.getElementById("clearBtn");
-  const copyTranscript = document.getElementById("copyTranscript");
-  const copyAnswer = document.getElementById("copyAnswer");
-  const errorBanner = document.getElementById("errorBanner");
-  const historyEl = document.getElementById("history");
-  const connectionStatus = document.getElementById("connectionStatus");
+  // DOM Elements
+  const welcomeHero = document.getElementById("welcomeHero");
+  const messagesThread = document.getElementById("messagesThread");
+  const textInput = document.getElementById("textInput");
+  const micBtn = document.getElementById("micBtn");
+  const liveVoiceBtn = document.getElementById("liveVoiceBtn");
+  const thinkBtn = document.getElementById("thinkBtn");
+  const audioFileInput = document.getElementById("audioFileInput");
+  const recordingHud = document.getElementById("recordingHud");
+  const recordingTimer = document.getElementById("recordingTimer");
+  const cancelRecordingBtn = document.getElementById("cancelRecordingBtn");
+  const finishRecordingBtn = document.getElementById("finishRecordingBtn");
+  const errorToast = document.getElementById("errorToast");
+  const errorMessage = document.getElementById("errorMessage");
+  const toastClose = document.getElementById("toastClose");
+  const providerName = document.getElementById("providerName");
+  const providerBadge = document.getElementById("providerBadge");
+  const clearChatChip = document.getElementById("clearChatChip");
+  const suggestionChips = document.getElementById("suggestionChips");
+  const audioPlayer = document.getElementById("audioPlayer");
 
   let mediaRecorder = null;
-  let chunks = [];
-  let recordedBlob = null;
-  let uploadedFile = null;
-  let seconds = 0;
-  let timerId = null;
-  let busy = false;
-  const history = JSON.parse(sessionStorage.getItem("voiceHistory") || "[]");
+  let audioChunks = [];
+  let isRecording = false;
+  let timerInterval = null;
+  let recordSeconds = 0;
+  let isThinking = false;
+  let isBusy = false;
 
-  const stages = {
-    ready: "Ready",
-    listening: "Listening",
-    transcribing: "Transcribing",
-    thinking: "Thinking",
-    speaking: "Generating Speech",
-    completed: "Completed",
-  };
+  // Session Chat History
+  const chatHistory = JSON.parse(sessionStorage.getItem("chatHistory") || "[]");
 
-  renderHistory();
-  checkHealth();
+  // Initialize
+  init();
 
-  startBtn.addEventListener("click", startRecording);
-  micButton.addEventListener("click", () => {
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  });
-  stopBtn.addEventListener("click", stopRecording);
-  askBtn.addEventListener("click", submitAudio);
-  fileInput.addEventListener("change", handleUpload);
-  replayBtn.addEventListener("click", () => {
-    if (player.src) {
-      player.currentTime = 0;
-      player.play();
-    }
-  });
-  clearBtn.addEventListener("click", clearConversation);
-  copyTranscript.addEventListener("click", () => copyText(transcriptEl.textContent));
-  copyAnswer.addEventListener("click", () => copyText(answerEl.textContent));
+  function init() {
+    renderHistory();
+    checkHealth();
 
+    // Event Listeners
+    textInput.addEventListener("keydown", handleTextKeydown);
+    textInput.addEventListener("input", autoResizeTextarea);
+    micBtn.addEventListener("click", toggleRecording);
+    liveVoiceBtn.addEventListener("click", toggleRecording);
+    thinkBtn.addEventListener("click", toggleThinkMode);
+    cancelRecordingBtn.addEventListener("click", cancelRecording);
+    finishRecordingBtn.addEventListener("click", finishRecording);
+    audioFileInput.addEventListener("change", handleFileSelected);
+    toastClose.addEventListener("click", hideError);
+    clearChatChip.addEventListener("click", clearConversation);
+
+    // Suggestion chips
+    document.querySelectorAll(".chip[data-prompt]").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const prompt = chip.getAttribute("data-prompt");
+        textInput.value = prompt + " ";
+        textInput.focus();
+        autoResizeTextarea();
+      });
+    });
+  }
+
+  // Auto-resize textarea
+  function autoResizeTextarea() {
+    textInput.style.height = "auto";
+    textInput.style.height = Math.min(textInput.scrollHeight, 160) + "px";
+  }
+
+  // Health check
   async function checkHealth() {
     try {
-      const response = await fetch("/api/health");
-      const data = await response.json();
-      const notes = (data.notes || []).join(" ");
-      connectionStatus.textContent = notes
-        ? `Online · ${data.llm_provider} / ${data.transcription_provider}`
-        : "Online";
-      if (notes) {
-        connectionStatus.title = notes;
+      const res = await fetch("/api/health");
+      if (!res.ok) throw new Error("Health check failed");
+      const data = await res.json();
+
+      let displayName = "Google Gemini";
+      if (data.llm_provider === "gemini") {
+        displayName = "Gemini 3.8 Flash";
+      } else if (data.llm_provider === "ollama") {
+        displayName = `Ollama (${data.llm_model})`;
+      } else if (data.llm_provider === "openai") {
+        displayName = "OpenAI";
       }
-    } catch (error) {
-      connectionStatus.textContent = "Backend unreachable";
-      connectionStatus.classList.add("warn");
+
+      providerName.textContent = displayName;
+      if (data.notes && data.notes.length > 0) {
+        providerBadge.title = data.notes.join("\n");
+      }
+    } catch {
+      providerName.textContent = "Offline";
+      const dot = providerBadge.querySelector(".status-dot");
+      if (dot) dot.classList.add("warn");
+    }
+  }
+
+  // Toggle Think mode
+  function toggleThinkMode() {
+    isThinking = !isThinking;
+    thinkBtn.classList.toggle("active", isThinking);
+  }
+
+  // Handle Enter key for sending text message
+  function handleTextKeydown(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const message = textInput.value.trim();
+      if (!message || isBusy) return;
+      sendTextMessage(message);
+    }
+  }
+
+  // Send typed text message
+  async function sendTextMessage(message) {
+    isBusy = true;
+    hideError();
+    textInput.value = "";
+    autoResizeTextarea();
+
+    // Append user message immediately
+    appendMessage("user", message);
+    const assistantBubble = appendLoadingMessage();
+
+    try {
+      const fullPrompt = isThinking ? `[Think deeply and reason step-by-step]\n${message}` : message;
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: fullPrompt, voice: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error((data.error && data.error.message) || "Request failed");
+      }
+
+      updateAssistantMessage(assistantBubble, data.answer, data.audio_url);
+      saveChatTurn(message, data.answer, data.audio_url);
+
+      if (data.audio_url) {
+        playAudio(data.audio_url);
+      }
+    } catch (err) {
+      removeLoadingMessage(assistantBubble);
+      showError(err.message || "Failed to get response");
+    } finally {
+      isBusy = false;
+    }
+  }
+
+  // Voice Recording Logic
+  async function toggleRecording() {
+    if (isRecording) {
+      finishRecording();
+    } else {
+      startRecording();
     }
   }
 
   async function startRecording() {
     hideError();
-    if (busy) {
-      return;
-    }
+    if (isBusy) return;
+
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showError("This browser does not support microphone recording. Use the upload option.");
+      showError("Microphone access is not supported in this browser. Please upload audio instead.");
       return;
     }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = pickMimeType();
-      mediaRecorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
-      chunks = [];
-      recordedBlob = null;
-      uploadedFile = null;
-      fileInput.value = "";
-      mediaRecorder.addEventListener("dataavailable", (event) => {
-        if (event.data && event.data.size > 0) {
-          chunks.push(event.data);
-        }
+      const mimeType = pickSupportedMimeType();
+      mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      audioChunks = [];
+
+      mediaRecorder.addEventListener("dataavailable", (e) => {
+        if (e.data && e.data.size > 0) audioChunks.push(e.data);
       });
+
       mediaRecorder.addEventListener("stop", () => {
-        recordedBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
         stream.getTracks().forEach((track) => track.stop());
-        askBtn.disabled = recordedBlob.size === 0;
-        setStage("ready");
-        statusText.textContent = "Recording captured. Click Ask Assistant to send it.";
       });
+
       mediaRecorder.start();
-      setRecordingUi(true);
-      setStage("listening");
-      statusText.textContent = "Listening… speak clearly, then stop recording.";
-    } catch (error) {
-      showError("Microphone permission was denied or the device is unavailable.");
+      isRecording = true;
+      showRecordingHud(true);
+      micBtn.classList.add("recording");
+      liveVoiceBtn.classList.add("active");
+
+      recordSeconds = 0;
+      recordingTimer.textContent = "00:00";
+      timerInterval = setInterval(() => {
+        recordSeconds++;
+        const mins = String(Math.floor(recordSeconds / 60)).padStart(2, "0");
+        const secs = String(recordSeconds % 60).padStart(2, "0");
+        recordingTimer.textContent = `${mins}:${secs}`;
+        if (recordSeconds >= 120) finishRecording();
+      }, 1000);
+    } catch (err) {
+      showError("Could not access microphone. Please allow microphone permissions.");
     }
   }
 
-  function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-      mediaRecorder.stop();
-    }
-    setRecordingUi(false);
+  function finishRecording() {
+    if (!mediaRecorder || !isRecording) return;
+    isRecording = false;
+    clearInterval(timerInterval);
+    showRecordingHud(false);
+    micBtn.classList.remove("recording");
+    liveVoiceBtn.classList.remove("active");
+
+    mediaRecorder.addEventListener("stop", async () => {
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+      if (blob.size === 0) {
+        showError("The recording was empty.");
+        return;
+      }
+      uploadAudioBlob(blob, `recording.${blob.type.includes("mp4") ? "mp4" : "webm"}`);
+    }, { once: true });
+
+    mediaRecorder.stop();
   }
 
-  function handleUpload(event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) {
-      return;
-    }
-    uploadedFile = file;
-    recordedBlob = null;
-    askBtn.disabled = false;
-    statusText.textContent = `Selected ${file.name}. Click Ask Assistant to send it.`;
+  function cancelRecording() {
+    if (!mediaRecorder || !isRecording) return;
+    isRecording = false;
+    clearInterval(timerInterval);
+    showRecordingHud(false);
+    micBtn.classList.remove("recording");
+    liveVoiceBtn.classList.remove("active");
+    audioChunks = [];
+    mediaRecorder.stop();
   }
 
-  async function submitAudio() {
-    if (busy) {
-      return;
-    }
-    const payload = buildPayload();
-    if (!payload) {
-      showError("Record or choose an audio file first.");
-      return;
-    }
-    busy = true;
-    askBtn.disabled = true;
-    startBtn.disabled = true;
-    micButton.disabled = true;
-    progress.classList.remove("hidden");
+  function handleFileSelected(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    uploadAudioBlob(file, file.name);
+    audioFileInput.value = "";
+  }
+
+  async function uploadAudioBlob(fileOrBlob, filename) {
+    isBusy = true;
     hideError();
-    setStage("transcribing");
-    progressText.textContent = "Transcribing";
 
-    const stageTimer = window.setTimeout(() => {
-      setStage("thinking");
-      progressText.textContent = "Thinking";
-    }, 900);
-    const speakTimer = window.setTimeout(() => {
-      setStage("speaking");
-      progressText.textContent = "Generating speech";
-    }, 1800);
+    const assistantBubble = appendLoadingMessage("Listening & transcribing your voice…");
+
+    const formData = new FormData();
+    formData.append("file", fileOrBlob, filename);
 
     try {
-      const response = await fetch("/api/voice", {
+      const res = await fetch("/api/voice", {
         method: "POST",
-        body: payload,
+        body: formData,
       });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error((data.error && data.error.message) || "The request failed.");
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error((data.error && data.error.message) || "Voice processing failed");
       }
-      transcriptEl.textContent = data.transcript;
-      answerEl.textContent = data.answer;
-      player.src = data.audio_url;
-      replayBtn.disabled = false;
-      player.play().catch(() => {});
-      history.unshift({
-        transcript: data.transcript,
-        answer: data.answer,
-        audio_url: data.audio_url,
-        at: new Date().toLocaleTimeString(),
-      });
-      sessionStorage.setItem("voiceHistory", JSON.stringify(history.slice(0, 20)));
-      renderHistory();
-      setStage("completed");
-      statusText.textContent = "Completed. You can replay the answer or ask another question.";
-    } catch (error) {
-      showError(error.message || "The voice request failed.");
-      setStage("ready");
+
+      // Prepend user message bubble with transcribed text
+      insertUserMessageBefore(assistantBubble, data.transcript);
+      updateAssistantMessage(assistantBubble, data.answer, data.audio_url);
+      saveChatTurn(data.transcript, data.answer, data.audio_url);
+
+      if (data.audio_url) {
+        playAudio(data.audio_url);
+      }
+    } catch (err) {
+      removeLoadingMessage(assistantBubble);
+      showError(err.message || "Voice request failed");
     } finally {
-      window.clearTimeout(stageTimer);
-      window.clearTimeout(speakTimer);
-      busy = false;
-      askBtn.disabled = false;
-      startBtn.disabled = false;
-      micButton.disabled = false;
-      progress.classList.add("hidden");
+      isBusy = false;
     }
   }
 
-  function buildPayload() {
-    const form = new FormData();
-    if (uploadedFile) {
-      form.append("file", uploadedFile, uploadedFile.name);
-      return form;
-    }
-    if (recordedBlob) {
-      const extension = extensionFor(recordedBlob.type);
-      form.append("file", recordedBlob, `recording.${extension}`);
-      return form;
-    }
-    return null;
+  // Audio Playback
+  function playAudio(url) {
+    if (!url) return;
+    audioPlayer.src = url;
+    audioPlayer.play().catch(() => {});
   }
 
-  function pickMimeType() {
-    const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
-    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) {
-      return "";
-    }
-    return types.find((type) => MediaRecorder.isTypeSupported(type)) || "";
+  // Chat UI Rendering
+  function appendMessage(role, text) {
+    welcomeHero.classList.add("hidden");
+    messagesThread.classList.remove("hidden");
+
+    const row = document.createElement("div");
+    row.className = `message-row ${role}`;
+    const bubble = document.createElement("div");
+    bubble.className = "message-bubble";
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    messagesThread.appendChild(row);
+    scrollToBottom();
+    return row;
   }
 
-  function extensionFor(mimeType) {
-    if (mimeType.includes("mp4")) return "mp4";
-    if (mimeType.includes("ogg")) return "ogg";
-    if (mimeType.includes("wav")) return "wav";
-    if (mimeType.includes("mpeg") || mimeType.includes("mp3")) return "mp3";
-    return "webm";
+  function appendLoadingMessage(text = "Thinking…") {
+    welcomeHero.classList.add("hidden");
+    messagesThread.classList.remove("hidden");
+
+    const row = document.createElement("div");
+    row.className = "message-row assistant";
+    row.innerHTML = `
+      <div class="message-bubble">
+        <div class="assistant-header">
+          <svg class="gemini-star" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
+          </svg>
+          Gemini
+        </div>
+        <p class="assistant-text" style="color: var(--text-muted); font-style: italic;">${escapeHtml(text)}</p>
+      </div>`;
+    messagesThread.appendChild(row);
+    scrollToBottom();
+    return row;
   }
 
-  function setRecordingUi(isRecording) {
-    startBtn.disabled = isRecording;
-    stopBtn.disabled = !isRecording;
-    micButton.classList.toggle("recording", isRecording);
-    if (isRecording) {
-      seconds = 0;
-      timerEl.textContent = "00:00";
-      timerId = window.setInterval(() => {
-        seconds += 1;
-        timerEl.textContent = formatTime(seconds);
-        if (seconds >= maxDuration) {
-          stopRecording();
-          statusText.textContent = "Maximum recording length reached.";
-        }
-      }, 1000);
-    } else if (timerId) {
-      window.clearInterval(timerId);
-      timerId = null;
-    }
-  }
+  function updateAssistantMessage(row, text, audioUrl) {
+    const bubble = row.querySelector(".message-bubble");
+    bubble.innerHTML = `
+      <div class="assistant-header">
+        <svg class="gemini-star" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
+        </svg>
+        Gemini
+      </div>
+      <div class="assistant-text">${escapeHtml(text)}</div>
+      <div class="assistant-actions">
+        ${audioUrl ? `<button class="action-btn play-audio-btn" data-url="${escapeHtml(audioUrl)}" type="button">🔊 Listen</button>` : ""}
+        <button class="action-btn copy-btn" type="button">📋 Copy</button>
+      </div>`;
 
-  function setStage(name) {
-    stageLabel.textContent = stages[name] || name;
-  }
-
-  function formatTime(total) {
-    const mins = String(Math.floor(total / 60)).padStart(2, "0");
-    const secs = String(total % 60).padStart(2, "0");
-    return `${mins}:${secs}`;
-  }
-
-  function showError(message) {
-    errorBanner.textContent = message;
-    errorBanner.classList.remove("hidden");
-  }
-
-  function hideError() {
-    errorBanner.classList.add("hidden");
-    errorBanner.textContent = "";
-  }
-
-  function copyText(value) {
-    navigator.clipboard.writeText(value || "").catch(() => {
-      showError("Copy failed. Select the text manually.");
+    // Action listeners
+    const copyBtn = bubble.querySelector(".copy-btn");
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = "✓ Copied";
+        setTimeout(() => (copyBtn.textContent = "📋 Copy"), 1800);
+      });
     });
+
+    const playBtn = bubble.querySelector(".play-audio-btn");
+    if (playBtn) {
+      playBtn.addEventListener("click", () => {
+        playAudio(audioUrl);
+      });
+    }
+
+    scrollToBottom();
   }
 
-  function clearConversation() {
-    history.length = 0;
-    sessionStorage.removeItem("voiceHistory");
-    transcriptEl.textContent = "Your spoken question will appear here.";
-    answerEl.textContent = "The assistant answer will appear here.";
-    player.removeAttribute("src");
-    player.load();
-    replayBtn.disabled = true;
-    recordedBlob = null;
-    uploadedFile = null;
-    fileInput.value = "";
-    askBtn.disabled = true;
-    renderHistory();
-    setStage("ready");
-    statusText.textContent = "Conversation cleared for this session.";
+  function insertUserMessageBefore(referenceNode, text) {
+    const row = document.createElement("div");
+    row.className = "message-row user";
+    const bubble = document.createElement("div");
+    bubble.className = "message-bubble";
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    messagesThread.insertBefore(row, referenceNode);
+  }
+
+  function removeLoadingMessage(row) {
+    if (row && row.parentNode) {
+      row.parentNode.removeChild(row);
+    }
   }
 
   function renderHistory() {
-    if (!history.length) {
-      historyEl.innerHTML = "<p class='hint'>No questions yet in this session.</p>";
-      return;
-    }
-    historyEl.innerHTML = history
-      .map(
-        (item) => `
-        <div class="history-item">
-          <strong>${escapeHtml(item.at)} · You</strong>
-          <p>${escapeHtml(item.transcript)}</p>
-          <strong>Assistant</strong>
-          <p>${escapeHtml(item.answer)}</p>
-        </div>`
-      )
-      .join("");
+    if (!chatHistory.length) return;
+    welcomeHero.classList.add("hidden");
+    messagesThread.classList.remove("hidden");
+    chatHistory.forEach((turn) => {
+      appendMessage("user", turn.user);
+      const assistantRow = appendLoadingMessage();
+      updateAssistantMessage(assistantRow, turn.assistant, turn.audio_url);
+    });
   }
 
-  function escapeHtml(value) {
-    return String(value || "")
+  function saveChatTurn(user, assistant, audioUrl) {
+    chatHistory.push({ user, assistant, audio_url: audioUrl });
+    sessionStorage.setItem("chatHistory", JSON.stringify(chatHistory.slice(-25)));
+  }
+
+  function clearConversation() {
+    chatHistory.length = 0;
+    sessionStorage.removeItem("chatHistory");
+    messagesThread.innerHTML = "";
+    messagesThread.classList.add("hidden");
+    welcomeHero.classList.remove("hidden");
+    audioPlayer.removeAttribute("src");
+    audioPlayer.load();
+    hideError();
+  }
+
+  function scrollToBottom() {
+    window.requestAnimationFrame(() => {
+      const container = document.querySelector(".chat-container");
+      container.scrollTop = container.scrollHeight;
+    });
+  }
+
+  function showRecordingHud(show) {
+    recordingHud.classList.toggle("hidden", !show);
+  }
+
+  function showError(msg) {
+    errorMessage.textContent = msg;
+    errorToast.classList.remove("hidden");
+  }
+
+  function hideError() {
+    errorToast.classList.add("hidden");
+    errorMessage.textContent = "";
+  }
+
+  function pickSupportedMimeType() {
+    const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"];
+    return types.find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
+  }
+
+  function escapeHtml(str) {
+    return String(str || "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;");

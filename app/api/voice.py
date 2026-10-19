@@ -12,8 +12,9 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from app.config import GENERATED_AUDIO_DIR, UPLOAD_DIR, ensure_directories, settings
 from app.errors import AudioTooLargeError, AudioValidationError, VoiceAssistantError
-from app.schemas.voice import HealthResponse, VoiceResponse
-from app.services.speech_service import cleanup_expired_audio
+from app.schemas.voice import ChatRequest, ChatResponse, HealthResponse, VoiceResponse
+from app.services.llm_service import answer_from_text
+from app.services.speech_service import audio_url_for, cleanup_expired_audio, generate_speech
 from app.services.voice_pipeline import process_voice_request
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,8 @@ def error_response(exc: VoiceAssistantError) -> JSONResponse:
 
 @router.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
+    import os
+
     cleanup_expired_audio()
     transcription = settings.resolved_transcription_provider()
     llm = settings.resolved_llm_provider()
@@ -53,31 +56,69 @@ def health() -> HealthResponse:
     openai_needed = "openai" in {transcription, llm, tts}
     if openai_needed and not settings.openai_api_key.strip():
         notes.append("OPENAI_API_KEY is not set. Cloud OpenAI-compatible calls will fail.")
+    gemini_configured = bool(
+        settings.gemini_api_key.strip()
+        or os.getenv("GEMINI_API_KEY", "").strip()
+        or os.getenv("GOOGLE_API_KEY", "").strip()
+    )
+    if ("gemini" in {transcription, llm}) and not gemini_configured:
+        notes.append("GEMINI_API_KEY is not set. Add it in .env to use Google Gemini.")
     if llm == "ollama":
         notes.append("LLM uses Ollama. Local model quality depends on the pulled model.")
     if transcription == "faster-whisper":
-        notes.append("Transcription uses faster-whisper. The first run downloads a model.")
+        notes.append("Transcription uses faster-whisper.")
     if tts == "pyttsx3":
-        notes.append("TTS uses the local system voice. Quality is lower than neural cloud voices.")
+        notes.append("TTS uses the local system voice.")
     if tts == "edge-tts":
-        notes.append("TTS uses edge-tts. It needs internet access and is not a paid OpenAI API.")
+        notes.append("TTS uses edge-tts.")
+
+    trans_model = settings.transcription_model
+    if transcription == "faster-whisper":
+        trans_model = settings.faster_whisper_model
+    elif transcription == "gemini":
+        trans_model = settings.gemini_model
+
     return HealthResponse(
         status="ok",
         transcription_provider=transcription,
         llm_provider=llm,
         tts_provider=tts,
         llm_model=settings.resolved_llm_model(),
-        transcription_model=(
-            settings.faster_whisper_model
-            if transcription == "faster-whisper"
-            else settings.transcription_model
-        ),
+        transcription_model=trans_model,
         tts_model=settings.tts_model if tts == "openai" else tts,
         max_audio_size_mb=settings.max_audio_size_mb,
         generated_audio_retention_minutes=settings.generated_audio_retention_minutes,
         openai_configured=bool(settings.openai_api_key.strip()),
+        gemini_configured=gemini_configured,
         notes=notes,
     )
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def create_chat_response(request: ChatRequest) -> ChatResponse | JSONResponse:
+    ensure_directories()
+    cleanup_expired_audio()
+    msg = request.message.strip()
+    if not msg:
+        return error_response(
+            VoiceAssistantError("Please enter a message or question.", status_code=400, code="empty_input")
+        )
+    try:
+        answer = answer_from_text(msg)
+        audio_url = ""
+        if request.voice:
+            try:
+                speech_path = generate_speech(answer)
+                audio_url = audio_url_for(speech_path)
+            except Exception as tts_exc:
+                logger.warning("TTS audio generation failed for chat: %s", tts_exc)
+        return ChatResponse(transcript=msg, answer=answer, audio_url=audio_url)
+    except VoiceAssistantError as exc:
+        logger.warning("Chat request failed: %s", exc.code)
+        return error_response(exc)
+    except Exception as exc:
+        logger.exception("Unexpected chat failure")
+        return error_response(VoiceAssistantError(f"Request failed: {exc}"))
 
 
 @router.post("/voice", response_model=VoiceResponse)

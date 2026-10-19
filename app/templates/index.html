@@ -2,80 +2,147 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Voice Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>AI Voice Assistant — Powered by Google Gemini</title>
+    <meta name="theme-color" content="#131314" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/static/css/style.css" />
   </head>
   <body>
-    <div class="bg-glow"></div>
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">College study companion</p>
-        <h1>AI Voice Assistant</h1>
+    <!-- Top Bar -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="nav-pills">
+          <button class="nav-pill active" id="tabChat" type="button">Chat</button>
+          <button class="nav-pill" id="tabWork" type="button">+ Work</button>
+        </div>
       </div>
-      <p class="status-chip" id="connectionStatus">Checking health…</p>
+      <div class="header-center">
+        <span class="brand-tag">
+          <svg class="gemini-star" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
+          </svg>
+          Google Gemini Assistant
+        </span>
+      </div>
+      <div class="header-right">
+        <div class="provider-badge" id="providerBadge" title="Click to view provider settings">
+          <span class="status-dot"></span>
+          <span id="providerName">Gemini 3.8 Flash</span>
+        </div>
+      </div>
     </header>
 
-    <main class="layout">
-      <section class="panel recorder">
-        <p class="stage-label" id="stageLabel">Ready</p>
-        <button class="mic-button" id="micButton" type="button" aria-label="Start recording">
-          <span class="mic-ring"></span>
-          <span class="mic-icon">🎤</span>
-        </button>
-        <p class="timer" id="timer">00:00</p>
-        <p class="hint" id="statusText">Tap the microphone or upload an audio file. Nothing is sent until you click Ask Assistant.</p>
-
-        <div class="controls">
-          <button id="startBtn" type="button">Start recording</button>
-          <button id="stopBtn" type="button" disabled>Stop recording</button>
-          <button id="askBtn" type="button" disabled>Ask Assistant</button>
-          <label class="upload-btn">
-            Upload audio
-            <input id="fileInput" type="file" accept="audio/*,video/webm,.wav,.mp3,.webm,.ogg,.m4a,.mp4" hidden />
-          </label>
-        </div>
-
-        <div class="progress hidden" id="progress">
-          <div class="progress-bar"></div>
-          <p id="progressText">Processing</p>
-        </div>
+    <!-- Main Container -->
+    <main class="chat-container">
+      <!-- Welcome Hero (shown when no messages) -->
+      <section class="welcome-hero" id="welcomeHero">
+        <h1 class="hero-title">What's on your mind today?</h1>
       </section>
 
-      <section class="panel results">
-        <article>
-          <div class="panel-heading">
-            <h2>Transcript</h2>
-            <button class="ghost" id="copyTranscript" type="button">Copy</button>
-          </div>
-          <p class="body-text" id="transcript">Your spoken question will appear here.</p>
-        </article>
-        <article>
-          <div class="panel-heading">
-            <h2>AI response</h2>
-            <button class="ghost" id="copyAnswer" type="button">Copy</button>
-          </div>
-          <p class="body-text" id="answer">The assistant answer will appear here.</p>
-          <audio id="player" controls></audio>
-          <div class="controls compact">
-            <button id="replayBtn" type="button" disabled>Replay audio</button>
-            <button id="clearBtn" type="button">Clear conversation</button>
-          </div>
-        </article>
+      <!-- Message History Thread -->
+      <section class="messages-thread hidden" id="messagesThread" aria-live="polite">
+        <!-- Messages will be injected here -->
       </section>
+
+      <!-- Hidden Audio Player for synthesized speech -->
+      <audio id="audioPlayer" preload="auto"></audio>
     </main>
 
-    <section class="panel history-panel">
-      <h2>Session history</h2>
-      <p class="hint">Stored only in this browser tab session. It is not saved on the server.</p>
-      <div id="history" class="history-list"></div>
-    </section>
+    <!-- Bottom Dock / Chat & Voice Bar (ChatGPT / Gemini style) -->
+    <footer class="dock-container">
+      <div class="dock-wrapper">
+        <!-- Error Banner -->
+        <div class="error-toast hidden" id="errorToast" role="alert">
+          <span class="error-icon">⚠️</span>
+          <span id="errorMessage"></span>
+          <button class="toast-close" id="toastClose" type="button" aria-label="Dismiss">&times;</button>
+        </div>
 
-    <p class="error-banner hidden" id="errorBanner" role="alert"></p>
+        <!-- Recording HUD overlay -->
+        <div class="recording-hud hidden" id="recordingHud">
+          <div class="pulse-ring"></div>
+          <span class="hud-status">Listening…</span>
+          <span class="hud-timer" id="recordingTimer">00:00</span>
+          <div class="wave-bars">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <button class="hud-cancel" id="cancelRecordingBtn" type="button">Cancel</button>
+          <button class="hud-stop" id="finishRecordingBtn" type="button">Done</button>
+        </div>
 
-    <footer>
-      <p>Maximum recording: {{ max_duration }} seconds · Maximum upload: {{ max_size_mb }} MB</p>
+        <!-- Input Pill Bar -->
+        <div class="input-pill" id="inputPill">
+          <!-- Plus / Upload button -->
+          <label class="icon-btn upload-label" title="Attach audio file">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <input id="audioFileInput" type="file" accept="audio/*,video/webm,.wav,.mp3,.webm,.ogg,.m4a" hidden />
+          </label>
+
+          <!-- Text Input -->
+          <textarea
+            id="textInput"
+            class="chat-textarea"
+            rows="1"
+            placeholder="Ask Gemini or start speaking…"
+            aria-label="Message input"
+          ></textarea>
+
+          <!-- Think Toggle Button -->
+          <button class="pill-btn think-btn" id="thinkBtn" type="button" title="Deep Reasoning Mode">
+            <svg class="brain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-5.04z"/>
+              <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-5.04z"/>
+            </svg>
+            <span>Think</span>
+          </button>
+
+          <!-- Mic button (Record Voice) -->
+          <button class="icon-btn mic-btn" id="micBtn" type="button" title="Speak to Gemini" aria-label="Microphone">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" x2="12" y1="19" y2="22"/>
+            </svg>
+          </button>
+
+          <!-- Blue Waveform / Live Voice Button (as shown in ChatGPT/Gemini screenshot) -->
+          <button class="waveform-btn" id="liveVoiceBtn" type="button" title="Live Voice Mode" aria-label="Start Voice Mode">
+            <div class="wave-graphic">
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </button>
+        </div>
+
+        <!-- Suggestion Chips (matching screenshot) -->
+        <div class="suggestion-chips" id="suggestionChips">
+          <button class="chip" data-prompt="Help me write and edit a clear summary of this topic:" type="button">
+            <span class="chip-icon">✏️</span>
+            <span>Write or edit</span>
+          </button>
+          <button class="chip" data-prompt="Search and explain the latest developments in AI:" type="button">
+            <span class="chip-icon">🌐</span>
+            <span>Search or explain</span>
+          </button>
+          <button class="chip" data-prompt="Explain this concept in simple terms for a beginner:" type="button">
+            <span class="chip-icon">💡</span>
+            <span>Explain simply</span>
+          </button>
+          <button class="chip" id="clearChatChip" type="button" title="Clear conversation">
+            <span class="chip-icon">🗑️</span>
+            <span>Clear chat</span>
+          </button>
+        </div>
+      </div>
     </footer>
+
     <script src="/static/js/app.js"></script>
   </body>
 </html>

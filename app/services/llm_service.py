@@ -22,19 +22,53 @@ def answer_from_text(user_text: str) -> str:
         )
 
     provider = settings.resolved_llm_provider()
-    if provider == "openai":
+    if provider == "gemini":
+        answer = _answer_gemini(cleaned)
+    elif provider == "openai":
         answer = _answer_openai(cleaned)
     elif provider == "ollama":
         answer = _answer_ollama(cleaned)
     else:
         raise ConfigurationError(
-            f"Unsupported LLM provider '{provider}'. Use openai or ollama."
+            f"Unsupported LLM provider '{provider}'. Use gemini, openai or ollama."
         )
 
     final = " ".join(answer.split()).strip()
     if not final:
         raise LLMError("The language model returned an empty answer.")
     return final
+
+
+def _answer_gemini(user_text: str) -> str:
+    import os
+
+    try:
+        from google import genai
+    except ImportError as exc:
+        raise ConfigurationError(
+            "google-genai is not installed. Run: pip install google-genai"
+        ) from exc
+
+    api_key = (
+        settings.gemini_api_key.strip()
+        or os.getenv("GEMINI_API_KEY", "").strip()
+        or os.getenv("GOOGLE_API_KEY", "").strip()
+    )
+
+    try:
+        client = genai.Client(api_key=api_key or None)
+        interaction = client.interactions.create(
+            model=settings.gemini_model or "gemini-3.8-flash",
+            input=[
+                {
+                    "type": "text",
+                    "text": f"{SYSTEM_PROMPT}\n\nStudent question: {user_text}",
+                }
+            ],
+        )
+        return str(interaction.output_text or "")
+    except Exception as exc:
+        raise LLMError(f"Google Gemini request failed: {exc}") from exc
 
 
 def _answer_openai(user_text: str) -> str:

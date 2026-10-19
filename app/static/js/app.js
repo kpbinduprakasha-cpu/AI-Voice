@@ -22,6 +22,8 @@
   const themeToggle = document.getElementById("themeToggle");
   const themeIcon = document.getElementById("themeIcon");
   const themeText = document.getElementById("themeText");
+  const scrollBottomBtn = document.getElementById("scrollBottomBtn");
+  const chatContainer = document.querySelector(".chat-container");
 
   let mediaRecorder = null;
   let audioChunks = [];
@@ -56,6 +58,21 @@
     toastClose.addEventListener("click", hideError);
     clearChatChip.addEventListener("click", clearConversation);
     themeToggle.addEventListener("click", toggleDayNightTheme);
+
+    // Scroll to bottom button
+    if (chatContainer && scrollBottomBtn) {
+      chatContainer.addEventListener("scroll", () => {
+        const distanceToBottom = chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight;
+        if (distanceToBottom > 100) {
+          scrollBottomBtn.classList.remove("hidden");
+        } else {
+          scrollBottomBtn.classList.add("hidden");
+        }
+      });
+      scrollBottomBtn.addEventListener("click", () => {
+        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
+      });
+    }
 
     // Audio player event listeners to reset play/stop buttons
     audioPlayer.addEventListener("ended", onAudioFinished);
@@ -502,8 +519,12 @@
 
   function scrollToBottom() {
     window.requestAnimationFrame(() => {
-      const container = document.querySelector(".chat-container");
-      container.scrollTop = container.scrollHeight;
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+      if (scrollBottomBtn) {
+        scrollBottomBtn.classList.add("hidden");
+      }
     });
   }
 
@@ -550,6 +571,10 @@
     text = text.replace(/^## (.*$)/gim, '<h2 class="md-h2">$1</h2>');
     text = text.replace(/^# (.*$)/gim, '<h1 class="md-h1">$1</h1>');
 
+    // Numbered headings like "1. **Title**" or "**1. Title**"
+    text = text.replace(/^(\d+\.)\s+\*\*(.*?)\*\*/gim, '<h3 class="md-h3">$1 $2</h3>');
+    text = text.replace(/^\*\*(\d+\..*?)\*\*/gim, '<h3 class="md-h3">$1</h3>');
+
     // 4. Bold text **text** and __text__
     text = text.replace(/\*\*(.*?)\*\*/g, '<strong class="md-bold">$1</strong>');
     text = text.replace(/__(.*?)__/g, '<strong class="md-bold">$1</strong>');
@@ -558,11 +583,11 @@
     text = text.replace(/\*([^*\n]+)\*/g, '<em class="md-italic">$1</em>');
     text = text.replace(/_([^_\n]+)_/g, '<em class="md-italic">$1</em>');
 
-    // 6. Bullet lists (- or *)
-    text = text.replace(/^\s*[-*]\s+(.*)$/gim, '<li class="md-li">$1</li>');
+    // 6. Bullet lists (- or * or • or o)
+    text = text.replace(/^\s*[-*•o]\s+(.*)$/gim, '<li class="md-li">$1</li>');
 
     // 7. Numbered lists (1. or 2.)
-    text = text.replace(/^\s*\d+\.\s+(.*)$/gim, '<li class="md-oli">$1</li>');
+    text = text.replace(/^\s*(\d+)\.\s+(.*)$/gim, '<li class="md-oli"><strong class="md-bold">$1.</strong> $2</li>');
 
     // 8. Paragraphs and line handling
     const rawLines = text.split("\n");

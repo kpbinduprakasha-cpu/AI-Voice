@@ -19,6 +19,9 @@
   const clearChatChip = document.getElementById("clearChatChip");
   const suggestionChips = document.getElementById("suggestionChips");
   const audioPlayer = document.getElementById("audioPlayer");
+  const themeToggle = document.getElementById("themeToggle");
+  const themeIcon = document.getElementById("themeIcon");
+  const themeText = document.getElementById("themeText");
 
   let mediaRecorder = null;
   let audioChunks = [];
@@ -37,6 +40,7 @@
   init();
 
   function init() {
+    initTheme();
     renderHistory();
     checkHealth();
 
@@ -51,6 +55,7 @@
     audioFileInput.addEventListener("change", handleFileSelected);
     toastClose.addEventListener("click", hideError);
     clearChatChip.addEventListener("click", clearConversation);
+    themeToggle.addEventListener("click", toggleDayNightTheme);
 
     // Audio player event listeners to reset play/stop buttons
     audioPlayer.addEventListener("ended", onAudioFinished);
@@ -65,6 +70,32 @@
         autoResizeTextarea();
       });
     });
+  }
+
+  // Day Type & Night Type Theme Management
+  function initTheme() {
+    const savedTheme = localStorage.getItem("chatTheme") || "night";
+    applyTheme(savedTheme);
+  }
+
+  function toggleDayNightTheme() {
+    const current = document.documentElement.getAttribute("data-theme") || "night";
+    const nextTheme = current === "night" ? "day" : "night";
+    applyTheme(nextTheme);
+    localStorage.setItem("chatTheme", nextTheme);
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    if (theme === "day") {
+      themeIcon.textContent = "☀️";
+      themeText.textContent = "Day";
+      document.querySelector('meta[name="theme-color"]').setAttribute("content", "#f3f4f8");
+    } else {
+      themeIcon.textContent = "🌙";
+      themeText.textContent = "Night";
+      document.querySelector('meta[name="theme-color"]').setAttribute("content", "#18181b");
+    }
   }
 
   // Auto-resize textarea
@@ -106,6 +137,12 @@
     thinkBtn.classList.toggle("active", isThinking);
   }
 
+  // Format current time for speech bubbles (e.g. 13:56 or 10:45 PM)
+  function getCurrentTime() {
+    const now = new Date();
+    return now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
   // Handle Enter key for sending text message
   function handleTextKeydown(e) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -125,7 +162,8 @@
     autoResizeTextarea();
 
     // Append user message immediately
-    appendMessage("user", message);
+    const time = getCurrentTime();
+    appendMessage("user", message, time);
     const assistantBubble = appendLoadingMessage();
 
     try {
@@ -140,10 +178,9 @@
         throw new Error((data.error && data.error.message) || "Request failed");
       }
 
-      updateAssistantMessage(assistantBubble, data.answer, data.audio_url);
-      saveChatTurn(message, data.answer, data.audio_url);
+      updateAssistantMessage(assistantBubble, data.answer, data.audio_url, time);
+      saveChatTurn(message, data.answer, data.audio_url, time);
 
-      // In typed chat mode, we do NOT force auto-play so user can read quietly or click Listen
       if (isLiveVoiceMode && data.audio_url) {
         playAudio(data.audio_url, assistantBubble.querySelector(".play-audio-btn"));
       }
@@ -157,26 +194,22 @@
 
   // Live Voice Button: handles start voice / stop voice / stop playback
   function handleLiveVoiceClick() {
-    // If audio is currently playing, clicking blue button immediately stops voice!
     if (!audioPlayer.paused && audioPlayer.src) {
       stopAudio();
       return;
     }
 
-    // If currently recording, finish and send
     if (isRecording) {
       finishRecording();
       return;
     }
 
-    // Otherwise, start live voice recording
     isLiveVoiceMode = true;
     startRecording();
   }
 
   // Voice Recording Logic
   async function toggleRecording() {
-    // If audio is playing, stop it first
     if (!audioPlayer.paused && audioPlayer.src) {
       stopAudio();
     }
@@ -275,7 +308,8 @@
     hideError();
     stopAudio();
 
-    const assistantBubble = appendLoadingMessage("Listening & transcribing your voice…");
+    const time = getCurrentTime();
+    const assistantBubble = appendLoadingMessage("Listening & answering…");
 
     const formData = new FormData();
     formData.append("file", fileOrBlob, filename);
@@ -290,12 +324,10 @@
         throw new Error((data.error && data.error.message) || "Voice processing failed");
       }
 
-      // Prepend user message bubble with transcribed text
-      insertUserMessageBefore(assistantBubble, data.transcript);
-      updateAssistantMessage(assistantBubble, data.answer, data.audio_url);
-      saveChatTurn(data.transcript, data.answer, data.audio_url);
+      insertUserMessageBefore(assistantBubble, data.transcript, time);
+      updateAssistantMessage(assistantBubble, data.answer, data.audio_url, time);
+      saveChatTurn(data.transcript, data.answer, data.audio_url, time);
 
-      // Auto-play speech when asked by voice, and attach the stop toggle button
       if (data.audio_url) {
         const playBtn = assistantBubble.querySelector(".play-audio-btn");
         playAudio(data.audio_url, playBtn);
@@ -312,7 +344,6 @@
   function playAudio(url, btnElement = null) {
     if (!url) return;
 
-    // Reset previous button state if any
     if (activeAudioBtn && activeAudioBtn !== btnElement) {
       activeAudioBtn.innerHTML = "🔊 Listen";
       activeAudioBtn.classList.remove("playing");
@@ -350,8 +381,8 @@
     }
   }
 
-  // Chat UI Rendering
-  function appendMessage(role, text) {
+  // Chat UI Rendering (Messenger style without image avatars)
+  function appendMessage(role, text, time = "") {
     welcomeHero.classList.add("hidden");
     messagesThread.classList.remove("hidden");
 
@@ -359,14 +390,14 @@
     row.className = `message-row ${role}`;
     const bubble = document.createElement("div");
     bubble.className = "message-bubble";
-    bubble.textContent = text;
+    bubble.innerHTML = `${escapeHtml(text)} ${time ? `<span class="message-time">${escapeHtml(time)}</span>` : ""}`;
     row.appendChild(bubble);
     messagesThread.appendChild(row);
     scrollToBottom();
     return row;
   }
 
-  function appendLoadingMessage(text = "Thinking…") {
+  function appendLoadingMessage() {
     welcomeHero.classList.add("hidden");
     messagesThread.classList.remove("hidden");
 
@@ -374,25 +405,26 @@
     row.className = "message-row assistant";
     row.innerHTML = `
       <div class="message-bubble">
-        <div class="assistant-header">
-          <img class="assistant-avatar" src="/static/img/kp_air_logo.png" alt="K P Air" />
+        <div class="assistant-sender-title">
           <span>K P Air</span>
+          <span class="message-time">${getCurrentTime()}</span>
         </div>
-        <p class="assistant-text" style="color: var(--text-muted); font-style: italic;">${escapeHtml(text)}</p>
+        <p class="assistant-text" style="color: var(--text-muted); font-style: italic;">Thinking…</p>
       </div>`;
     messagesThread.appendChild(row);
     scrollToBottom();
     return row;
   }
 
-  function updateAssistantMessage(row, text, audioUrl) {
+  function updateAssistantMessage(row, text, audioUrl, time = "") {
     const bubble = row.querySelector(".message-bubble");
     const formattedHtml = renderMarkdown(text);
+    const displayTime = time || getCurrentTime();
 
     bubble.innerHTML = `
-      <div class="assistant-header">
-        <img class="assistant-avatar" src="/static/img/kp_air_logo.png" alt="K P Air" />
+      <div class="assistant-sender-title">
         <span>K P Air</span>
+        <span class="message-time">${escapeHtml(displayTime)}</span>
       </div>
       <div class="assistant-text">${formattedHtml}</div>
       <div class="assistant-actions">
@@ -424,12 +456,12 @@
     scrollToBottom();
   }
 
-  function insertUserMessageBefore(referenceNode, text) {
+  function insertUserMessageBefore(referenceNode, text, time = "") {
     const row = document.createElement("div");
     row.className = "message-row user";
     const bubble = document.createElement("div");
     bubble.className = "message-bubble";
-    bubble.textContent = text;
+    bubble.innerHTML = `${escapeHtml(text)} ${time ? `<span class="message-time">${escapeHtml(time)}</span>` : ""}`;
     row.appendChild(bubble);
     messagesThread.insertBefore(row, referenceNode);
   }
@@ -445,14 +477,14 @@
     welcomeHero.classList.add("hidden");
     messagesThread.classList.remove("hidden");
     chatHistory.forEach((turn) => {
-      appendMessage("user", turn.user);
+      appendMessage("user", turn.user, turn.time || "");
       const assistantRow = appendLoadingMessage();
-      updateAssistantMessage(assistantRow, turn.assistant, turn.audio_url);
+      updateAssistantMessage(assistantRow, turn.assistant, turn.audio_url, turn.time || "");
     });
   }
 
-  function saveChatTurn(user, assistant, audioUrl) {
-    chatHistory.push({ user, assistant, audio_url: audioUrl });
+  function saveChatTurn(user, assistant, audioUrl, time) {
+    chatHistory.push({ user, assistant, audio_url: audioUrl, time: time || getCurrentTime() });
     sessionStorage.setItem("chatHistory", JSON.stringify(chatHistory.slice(-25)));
   }
 

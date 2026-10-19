@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="night">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>K P Air — AI Voice Assistant</title>
-    <meta name="theme-color" content="#0d0d0d" />
-    <link rel="icon" type="image/png" href="/static/img/kp_air_logo.png" />
+    <meta name="theme-color" content="#18181b" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -15,18 +14,23 @@
     <!-- Top Bar -->
     <header class="app-header">
       <div class="header-left">
-        <div class="nav-pills">
-          <button class="nav-pill active" id="tabChat" type="button">Chat</button>
-          <button class="nav-pill" id="tabWork" type="button">+ Work</button>
-        </div>
-      </div>
-      <div class="header-center">
         <div class="brand-tag">
-          <img class="header-logo" src="/static/img/kp_air_logo.png" alt="K P Air Logo" />
+          <span class="status-pulse"></span>
           <span class="brand-name">K P Air</span>
         </div>
       </div>
+      <div class="header-center">
+        <div class="header-chat-title">
+          <span class="chat-status-pill">Online Chat</span>
+        </div>
+      </div>
       <div class="header-right">
+        <!-- Day / Night Theme Toggle -->
+        <button class="theme-toggle-btn" id="themeToggle" type="button" title="Switch Day/Night mode">
+          <span class="theme-icon" id="themeIcon">🌙</span>
+          <span class="theme-text" id="themeText">Night</span>
+        </button>
+        <!-- Engine Status Badge -->
         <div class="provider-badge" id="providerBadge" title="Engine Status">
           <span class="status-dot"></span>
           <span id="providerName">K P Air AI</span>
@@ -36,18 +40,16 @@
 
     <!-- Main Container -->
     <main class="chat-container">
-      <!-- Welcome Hero (shown when no messages) -->
+      <!-- Welcome Hero (shown when no messages, clean without images) -->
       <section class="welcome-hero" id="welcomeHero">
-        <div class="hero-logo-wrapper">
-          <img class="hero-big-logo" src="/static/img/kp_air_logo.png" alt="K P Air Logo" />
-        </div>
+        <div class="hero-badge">Voice & Text AI</div>
         <h1 class="hero-title">K P Air</h1>
         <p class="hero-subtitle">What's on your mind today?</p>
       </section>
 
-      <!-- Message History Thread -->
+      <!-- Message History Thread (Messenger style left/right bubbles) -->
       <section class="messages-thread hidden" id="messagesThread" aria-live="polite">
-        <!-- Messages will be injected here -->
+        <!-- Chat bubbles will be injected here -->
       </section>
 
       <!-- Hidden Audio Player for synthesized speech -->
@@ -67,7 +69,7 @@
         <!-- Recording HUD overlay -->
         <div class="recording-hud hidden" id="recordingHud">
           <div class="pulse-ring"></div>
-          <span class="hud-status">K P Air is listening…</span>
+          <span class="hud-status">Listening…</span>
           <span class="hud-timer" id="recordingTimer">00:00</span>
           <div class="wave-bars">
             <span></span><span></span><span></span><span></span><span></span>

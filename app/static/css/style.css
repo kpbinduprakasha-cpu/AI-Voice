@@ -847,3 +847,352 @@ body {
   .pill-btn span { display: none; }
   .suggestion-chips { overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start; }
 }
+
+
+/* ==============================================================================
+   Human Waiting & Thinking Animation ("Moment of Human")
+   ============================================================================== */
+.message-row.assistant.thinking-row .message-bubble {
+  padding: 4px 0 16px 0;
+}
+
+.human-waiting-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 18px 12px 14px;
+  border-radius: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  position: relative;
+  overflow: hidden;
+  max-width: 90%;
+  transition: all 0.25s ease;
+}
+
+[data-theme="day"] .human-waiting-card {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(244, 114, 182, 0.35);
+  box-shadow: 0 4px 18px rgba(236, 72, 153, 0.12);
+}
+
+.human-avatar-wrapper {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(59, 130, 246, 0.1);
+  flex-shrink: 0;
+}
+
+[data-theme="day"] .human-avatar-wrapper {
+  background: rgba(236, 72, 153, 0.12);
+}
+
+.human-pulse-glow {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, transparent 70%);
+  animation: humanGlowPulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+[data-theme="day"] .human-pulse-glow {
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.45) 0%, transparent 70%);
+}
+
+@keyframes humanGlowPulse {
+  0%, 100% {
+    transform: scale(0.92);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.8;
+  }
+}
+
+.human-motion-svg {
+  position: relative;
+  z-index: 2;
+  overflow: visible;
+}
+
+.human-figure-group {
+  animation: humanFigureBreathe 2.4s ease-in-out infinite;
+  transform-origin: 32px 54px;
+}
+
+@keyframes humanFigureBreathe {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.2px);
+  }
+}
+
+.human-head-anim {
+  animation: humanHeadPonder 3.2s ease-in-out infinite;
+  transform-origin: 32px 30px;
+}
+
+@keyframes humanHeadPonder {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  35% {
+    transform: rotate(-6deg) translateY(-1px);
+  }
+  70% {
+    transform: rotate(3deg) translateY(0.5px);
+  }
+}
+
+.human-arm-anim {
+  animation: humanArmThought 3.2s ease-in-out infinite;
+  transform-origin: 22px 45px;
+}
+
+@keyframes humanArmThought {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  35% {
+    transform: rotate(3deg);
+  }
+  70% {
+    transform: rotate(-2deg);
+  }
+}
+
+.human-body {
+  fill: var(--accent-blue);
+  opacity: 0.88;
+}
+
+[data-theme="day"] .human-body {
+  fill: #db2777;
+}
+
+.human-neck {
+  fill: #fdba74;
+}
+
+.human-head {
+  fill: #fed7aa;
+}
+
+.human-hair {
+  fill: #3b82f6;
+}
+
+[data-theme="day"] .human-hair {
+  fill: #9d174d;
+}
+
+.human-eye {
+  fill: #1e293b;
+  animation: humanEyeGlance 3.6s ease-in-out infinite;
+}
+
+@keyframes humanEyeGlance {
+  0%, 100% {
+    transform: translate(0, 0);
+  }
+  30%, 60% {
+    transform: translate(0.8px, -1px);
+  }
+}
+
+.human-mouth {
+  stroke: #c2410c;
+}
+
+.human-arm {
+  stroke: var(--accent-blue);
+}
+
+[data-theme="day"] .human-arm {
+  stroke: #db2777;
+}
+
+.human-hand {
+  fill: #fdba74;
+}
+
+.thought-bubble {
+  fill: var(--accent-blue);
+  opacity: 0;
+  animation: thoughtRise 2.4s ease-in-out infinite;
+}
+
+[data-theme="day"] .thought-bubble {
+  fill: #ec4899;
+}
+
+.thought-bubble.tb-1 {
+  animation-delay: 0s;
+}
+
+.thought-bubble.tb-2 {
+  animation-delay: 0.8s;
+}
+
+.thought-bubble.tb-3 {
+  animation-delay: 1.6s;
+}
+
+@keyframes thoughtRise {
+  0% {
+    transform: scale(0.4) translateY(3px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.9;
+  }
+  80% {
+    transform: scale(1.15) translateY(-5px);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.3) translateY(-9px);
+    opacity: 0;
+  }
+}
+
+.human-waiting-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.human-waiting-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.human-waiting-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--accent-blue);
+  letter-spacing: -0.01em;
+}
+
+[data-theme="day"] .human-waiting-name {
+  color: #db2777;
+}
+
+.human-thinking-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--accent-blue);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+[data-theme="day"] .human-thinking-badge {
+  background: rgba(236, 72, 153, 0.14);
+  color: #be185d;
+}
+
+.badge-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  animation: badgeDotPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes badgeDotPulse {
+  0%, 100% {
+    transform: scale(0.9);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 1;
+  }
+}
+
+.human-waiting-timer {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme="day"] .human-waiting-timer {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.human-waiting-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.human-status-subtext {
+  font-weight: 400;
+}
+
+.human-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.human-typing-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: var(--accent-blue);
+  display: inline-block;
+  animation: typingDotBounce 1.4s infinite ease-in-out both;
+}
+
+[data-theme="day"] .human-typing-dots span {
+  background-color: #db2777;
+}
+
+.human-typing-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.human-typing-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.human-typing-dots span:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes typingDotBounce {
+  0%, 80%, 100% {
+    transform: scale(0.7);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1.3) translateY(-2px);
+    opacity: 1;
+  }
+}

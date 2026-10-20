@@ -104,8 +104,53 @@ def _answer_openai(user_text: str) -> str:
     return content
 
 
+def _ensure_ollama_started() -> bool:
+    """Ensure Ollama daemon is active, starting it in the background if needed."""
+    for test_url in ("http://127.0.0.1:11434", "http://localhost:11434"):
+        try:
+            r = httpx.get(test_url, timeout=1.0)
+            if r.status_code == 200:
+                return True
+        except Exception:
+            pass
+
+    import shutil
+    import subprocess
+    import time
+
+    ollama_bin = shutil.which("ollama")
+    if not ollama_bin:
+        return False
+
+    try:
+        subprocess.Popen(
+            [ollama_bin, "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        for _ in range(8):
+            time.sleep(0.5)
+            try:
+                r = httpx.get("http://127.0.0.1:11434", timeout=1.0)
+                if r.status_code == 200:
+                    return True
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return False
+
+
 def _answer_ollama(user_text: str) -> str:
-    url = settings.ollama_base_url.rstrip("/") + "/api/chat"
+    candidate_urls = [
+        settings.ollama_base_url.rstrip("/") + "/api/chat",
+        "http://127.0.0.1:11434/api/chat",
+        "http://localhost:11434/api/chat",
+    ]
+    seen = set()
+    urls = [u for u in candidate_urls if not (u in seen or seen.add(u))]
+
     payload = {
         "model": settings.resolved_llm_model(),
         "messages": [
@@ -118,21 +163,30 @@ def _answer_ollama(user_text: str) -> str:
         },
         "stream": False,
     }
-    try:
-        response = httpx.post(url, json=payload, timeout=settings.request_timeout_seconds)
-        response.raise_for_status()
-        data = response.json()
-    except httpx.ConnectError as exc:
-        raise LLMError(
-            "Could not connect to Ollama. Start Ollama locally or check OLLAMA_BASE_URL."
-        ) from exc
-    except httpx.TimeoutException as exc:
-        raise LLMError("The local Ollama model timed out. Try a smaller model or a shorter question.") from exc
-    except httpx.HTTPStatusError as exc:
-        raise LLMError("Ollama returned an error. Confirm the model name is pulled.") from exc
-    except Exception as exc:
-        raise LLMError("The local language model request failed.") from exc
 
-    message = data.get("message") or {}
-    content = message.get("content") or data.get("response") or ""
-    return str(content)
+    for attempt in range(2):
+        for url in urls:
+            try:
+                response = httpx.post(url, json=payload, timeout=settings.request_timeout_seconds)
+                response.raise_for_status()
+                data = response.json()
+                message = data.get("message") or {}
+                content = message.get("content") or data.get("response") or ""
+                return str(content)
+            except httpx.ConnectError:
+                continue
+            except httpx.TimeoutException as exc:
+                raise LLMError("The local Ollama model timed out. Try a smaller model or a shorter question.") from exc
+            except httpx.HTTPStatusError as exc:
+                raise LLMError(f"Ollama returned an error (status {exc.response.status_code}). Confirm model '{settings.resolved_llm_model()}' is pulled.") from exc
+            except Exception as exc:
+                raise LLMError(f"The local language model request failed: {exc}") from exc
+
+        if attempt == 0:
+            started = _ensure_ollama_started()
+            if not started:
+                break
+
+    raise LLMError(
+        "Could not connect to Ollama. Start Ollama locally ('ollama serve') or check OLLAMA_BASE_URL."
+    )

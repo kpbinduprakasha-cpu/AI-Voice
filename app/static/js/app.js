@@ -414,27 +414,94 @@
     return row;
   }
 
-  function appendLoadingMessage() {
+  function appendLoadingMessage(statusText = "Thinking…") {
     welcomeHero.classList.add("hidden");
     messagesThread.classList.remove("hidden");
 
     const row = document.createElement("div");
-    row.className = "message-row assistant";
+    row.className = "message-row assistant thinking-row";
+    const startTime = Date.now();
+
     row.innerHTML = `
-      <div class="message-bubble">
-        <div class="assistant-sender-title">
-          <span>K P Air</span>
-          <span class="message-time">${getCurrentTime()}</span>
+      <div class="message-bubble thinking-bubble">
+        <div class="human-waiting-card">
+          <div class="human-avatar-wrapper">
+            <div class="human-pulse-glow"></div>
+            <svg class="human-motion-svg" viewBox="0 0 64 64" width="46" height="46" aria-hidden="true">
+              <!-- Floating animated thought bubbles -->
+              <g class="thought-bubbles-group">
+                <circle class="thought-bubble tb-1" cx="44" cy="18" r="2.2" />
+                <circle class="thought-bubble tb-2" cx="50" cy="11" r="3.2" />
+                <circle class="thought-bubble tb-3" cx="56" cy="4" r="4.2" />
+              </g>
+              <!-- Human Figure with animated breathing & thinking gesture -->
+              <g class="human-figure-group">
+                <!-- Torso & Shoulders -->
+                <path class="human-body" d="M16 54 C16 43, 24 38, 32 38 C40 38, 48 43, 48 54 Z" />
+                <!-- Neck -->
+                <rect class="human-neck" x="29" y="31" width="6" height="8" rx="2" />
+                <!-- Head with subtle pondering tilt -->
+                <g class="human-head-anim">
+                  <circle class="human-head" cx="32" cy="23" r="10.5" />
+                  <path class="human-hair" d="M22 21 C22 14, 27 12, 34 12 C41 12, 43 15, 43 21 C40 17, 36 16, 28 18 Z" />
+                  <!-- Eye gazing upward in thought -->
+                  <circle class="human-eye" cx="35.5" cy="21.5" r="1.4" />
+                  <!-- Pondering mouth -->
+                  <path class="human-mouth" d="M33 27 Q36 28, 38 26" fill="none" stroke-width="1.2" stroke-linecap="round" />
+                </g>
+                <!-- Arm in classic 'The Thinker' pose resting hand on chin -->
+                <g class="human-arm-anim">
+                  <path class="human-arm" d="M22 45 C23 37, 30 35, 36 30" fill="none" stroke-width="3.2" stroke-linecap="round" />
+                  <circle class="human-hand" cx="36" cy="29" r="2.8" />
+                </g>
+              </g>
+            </svg>
+          </div>
+          <div class="human-waiting-content">
+            <div class="human-waiting-header">
+              <span class="human-waiting-name">K P Air</span>
+              <span class="human-thinking-badge">
+                <span class="badge-pulse-dot"></span>
+                <span class="badge-label-text">${escapeHtml(statusText)}</span>
+              </span>
+              <span class="human-waiting-timer">0s</span>
+            </div>
+            <div class="human-waiting-status">
+              <span class="human-status-subtext">Reasoning step-by-step for you</span>
+              <span class="human-typing-dots">
+                <span></span><span></span><span></span>
+              </span>
+            </div>
+          </div>
         </div>
-        <p class="assistant-text" style="color: var(--text-muted); font-style: italic;">Thinking…</p>
       </div>`;
+
+    const timerEl = row.querySelector(".human-waiting-timer");
+    const timerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      if (timerEl) {
+        timerEl.textContent = `${elapsed}s`;
+      }
+    }, 1000);
+
+    row._thinkingTimerInterval = timerInterval;
+
     messagesThread.appendChild(row);
     scrollToBottom();
     return row;
   }
 
   function updateAssistantMessage(row, text, audioUrl, time = "") {
+    if (!row) return;
+    if (row._thinkingTimerInterval) {
+      clearInterval(row._thinkingTimerInterval);
+      row._thinkingTimerInterval = null;
+    }
+    row.classList.remove("thinking-row");
+
     const bubble = row.querySelector(".message-bubble");
+    if (!bubble) return;
+    bubble.classList.remove("thinking-bubble");
     const formattedHtml = renderMarkdown(text);
     const displayTime = time || getCurrentTime();
 
@@ -484,9 +551,61 @@
   }
 
   function removeLoadingMessage(row) {
-    if (row && row.parentNode) {
+    if (!row) return;
+    if (row._thinkingTimerInterval) {
+      clearInterval(row._thinkingTimerInterval);
+      row._thinkingTimerInterval = null;
+    }
+    if (row.parentNode) {
       row.parentNode.removeChild(row);
     }
+  }
+
+  function appendAssistantMessage(text, audioUrl, time = "") {
+    welcomeHero.classList.add("hidden");
+    messagesThread.classList.remove("hidden");
+
+    const row = document.createElement("div");
+    row.className = "message-row assistant";
+    const bubble = document.createElement("div");
+    bubble.className = "message-bubble";
+    const formattedHtml = renderMarkdown(text);
+    const displayTime = time || getCurrentTime();
+
+    bubble.innerHTML = `
+      <div class="assistant-sender-title">
+        <span>K P Air</span>
+        <span class="message-time">${escapeHtml(displayTime)}</span>
+      </div>
+      <div class="assistant-text">${formattedHtml}</div>
+      <div class="assistant-actions">
+        ${audioUrl ? `<button class="action-btn play-audio-btn" data-url="${escapeHtml(audioUrl)}" type="button">🔊 Listen</button>` : ""}
+        <button class="action-btn copy-btn" type="button">📋 Copy</button>
+      </div>`;
+
+    const copyBtn = bubble.querySelector(".copy-btn");
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(text).then(() => {
+        copyBtn.textContent = "✓ Copied";
+        setTimeout(() => (copyBtn.textContent = "📋 Copy"), 1800);
+      });
+    });
+
+    const playBtn = bubble.querySelector(".play-audio-btn");
+    if (playBtn) {
+      playBtn.addEventListener("click", () => {
+        if (!audioPlayer.paused && audioPlayer.src.includes(audioUrl)) {
+          stopAudio();
+        } else {
+          playAudio(audioUrl, playBtn);
+        }
+      });
+    }
+
+    row.appendChild(bubble);
+    messagesThread.appendChild(row);
+    scrollToBottom();
+    return row;
   }
 
   function renderHistory() {
@@ -495,8 +614,7 @@
     messagesThread.classList.remove("hidden");
     chatHistory.forEach((turn) => {
       appendMessage("user", turn.user, turn.time || "");
-      const assistantRow = appendLoadingMessage();
-      updateAssistantMessage(assistantRow, turn.assistant, turn.audio_url, turn.time || "");
+      appendAssistantMessage(turn.assistant, turn.audio_url, turn.time || "");
     });
   }
 

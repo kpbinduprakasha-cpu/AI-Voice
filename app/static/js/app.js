@@ -5,7 +5,6 @@
   const textInput = document.getElementById("textInput");
   const micBtn = document.getElementById("micBtn");
   const liveVoiceBtn = document.getElementById("liveVoiceBtn");
-  const thinkBtn = document.getElementById("thinkBtn");
   const audioFileInput = document.getElementById("audioFileInput");
   const recordingHud = document.getElementById("recordingHud");
   const recordingTimer = document.getElementById("recordingTimer");
@@ -25,15 +24,35 @@
   const scrollBottomBtn = document.getElementById("scrollBottomBtn");
   const chatContainer = document.querySelector(".chat-container");
 
+  // Dedicated Live Voice Page DOM Elements
+  const liveVoicePage = document.getElementById("liveVoicePage");
+  const liveVoiceExitBtn = document.getElementById("liveVoiceExitBtn");
+  const liveVoiceTimer = document.getElementById("liveVoiceTimer");
+  const liveVoiceStatusPill = document.getElementById("liveVoiceStatusPill");
+  const liveVoiceStatusText = document.getElementById("liveVoiceStatusText");
+  const liveVoiceWaveCanvas = document.getElementById("liveVoiceWaveCanvas");
+  const liveSubtitleContainer = document.getElementById("liveSubtitleContainer");
+  const liveSubtitleText = document.getElementById("liveSubtitleText");
+  const liveMainMicBtn = document.getElementById("liveMainMicBtn");
+  const liveMicHint = document.getElementById("liveMicHint");
+
   let mediaRecorder = null;
   let audioChunks = [];
   let isRecording = false;
   let timerInterval = null;
   let recordSeconds = 0;
-  let isThinking = false;
   let isBusy = false;
   let activeAudioBtn = null;
   let isLiveVoiceMode = false;
+
+  // Live Voice Page States
+  let liveVoiceActive = false;
+  let liveSessionTimer = null;
+  let liveSessionSeconds = 0;
+  let waveAnimId = null;
+  let audioContext = null;
+  let analyser = null;
+  let audioDataArray = null;
 
   // Session Chat History
   const chatHistory = JSON.parse(sessionStorage.getItem("chatHistory") || "[]");
@@ -50,14 +69,40 @@
     textInput.addEventListener("keydown", handleTextKeydown);
     textInput.addEventListener("input", autoResizeTextarea);
     micBtn.addEventListener("click", toggleRecording);
-    liveVoiceBtn.addEventListener("click", handleLiveVoiceClick);
-    thinkBtn.addEventListener("click", toggleThinkMode);
+    liveVoiceBtn.addEventListener("click", openLiveVoicePage);
+    if (liveVoiceExitBtn) {
+      liveVoiceExitBtn.addEventListener("click", closeLiveVoicePage);
+    }
+    if (liveMainMicBtn) {
+      liveMainMicBtn.addEventListener("click", toggleLiveMic);
+    }
+
     cancelRecordingBtn.addEventListener("click", cancelRecording);
     finishRecordingBtn.addEventListener("click", finishRecording);
     audioFileInput.addEventListener("change", handleFileSelected);
     toastClose.addEventListener("click", hideError);
     clearChatChip.addEventListener("click", clearConversation);
     themeToggle.addEventListener("click", toggleDayNightTheme);
+
+    // Escape key closes live voice
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && liveVoiceActive) {
+        closeLiveVoicePage();
+      }
+    });
+
+    // Browser navigation / URL route support (/live)
+    window.addEventListener("popstate", () => {
+      if (window.location.pathname === "/live") {
+        if (!liveVoiceActive) openLiveVoicePage();
+      } else {
+        if (liveVoiceActive) closeLiveVoicePage();
+      }
+    });
+
+    if (window.location.pathname === "/live" || window.location.hash === "#live") {
+      openLiveVoicePage();
+    }
 
     // Scroll to bottom button
     if (chatContainer && scrollBottomBtn) {
@@ -148,12 +193,6 @@
     }
   }
 
-  // Toggle Think mode
-  function toggleThinkMode() {
-    isThinking = !isThinking;
-    thinkBtn.classList.toggle("active", isThinking);
-  }
-
   // Format current time for speech bubbles (e.g. 13:56 or 10:45 PM)
   function getCurrentTime() {
     const now = new Date();
@@ -184,7 +223,7 @@
     const assistantBubble = appendLoadingMessage();
 
     try {
-      const fullPrompt = isThinking ? `[Think deeply and reason step-by-step]\n${message}` : message;
+      const fullPrompt = message;
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -209,20 +248,208 @@
     }
   }
 
-  // Live Voice Button: handles start voice / stop voice / stop playback
-  function handleLiveVoiceClick() {
+  // Dedicated Live Voice Mode Page Controller (Matching Screenshot)
+  function openLiveVoicePage() {
+    liveVoiceActive = true;
+    liveVoicePage.classList.remove("hidden");
+    if (window.location.pathname !== "/live") {
+      history.pushState({ page: "live" }, "", "/live");
+    }
+    startLiveSessionTimer();
+    initWaveCanvas();
+    updateLiveStatus("ready", "Ready");
+    setLiveSubtitle("Tap the microphone to speak with K P Air");
+    if (liveMainMicBtn) liveMainMicBtn.classList.remove("recording");
+    if (liveMicHint) liveMicHint.textContent = "Tap to speak";
+
+    // Auto-start recording for natural voice interaction
+    setTimeout(() => {
+      if (liveVoiceActive && !isRecording && !isBusy) {
+        startRecording();
+      }
+    }, 450);
+  }
+
+  function closeLiveVoicePage() {
+    liveVoiceActive = false;
+    liveVoicePage.classList.add("hidden");
+    if (waveAnimId) {
+      cancelAnimationFrame(waveAnimId);
+      waveAnimId = null;
+    }
+    stopLiveSessionTimer();
+    if (isRecording) {
+      finishRecording();
+    }
+    stopAudio();
+    if (window.location.pathname === "/live") {
+      history.pushState(null, "", "/");
+    }
+  }
+
+  function startLiveSessionTimer() {
+    liveSessionSeconds = 0;
+    updateLiveTimerDisplay();
+    if (liveSessionTimer) clearInterval(liveSessionTimer);
+    liveSessionTimer = setInterval(() => {
+      liveSessionSeconds++;
+      updateLiveTimerDisplay();
+    }, 1000);
+  }
+
+  function updateLiveTimerDisplay() {
+    const hrs = String(Math.floor(liveSessionSeconds / 3600)).padStart(2, "0");
+    const mins = String(Math.floor((liveSessionSeconds % 3600) / 60)).padStart(2, "0");
+    const secs = String(liveSessionSeconds % 60).padStart(2, "0");
+    if (liveVoiceTimer) {
+      liveVoiceTimer.textContent = `${hrs}:${mins}:${secs}`;
+    }
+  }
+
+  function stopLiveSessionTimer() {
+    if (liveSessionTimer) {
+      clearInterval(liveSessionTimer);
+      liveSessionTimer = null;
+    }
+  }
+
+  function updateLiveStatus(state, text) {
+    if (!liveVoiceStatusPill || !liveVoiceStatusText) return;
+    liveVoiceStatusPill.className = "live-voice-status-pill";
+    if (state === "recording") {
+      liveVoiceStatusPill.classList.add("recording");
+    } else if (state === "speaking") {
+      liveVoiceStatusPill.classList.add("speaking");
+    }
+    liveVoiceStatusText.textContent = text;
+  }
+
+  function setLiveSubtitle(text) {
+    if (liveSubtitleText) {
+      liveSubtitleText.textContent = text;
+    }
+  }
+
+  function toggleLiveMic() {
+    if (isBusy) return;
     if (!audioPlayer.paused && audioPlayer.src) {
       stopAudio();
+      setLiveSubtitle("Playback paused. Tap to speak.");
+      updateLiveStatus("ready", "Ready");
+      if (liveMicHint) liveMicHint.textContent = "Tap to speak";
       return;
     }
 
     if (isRecording) {
       finishRecording();
-      return;
+    } else {
+      startRecording();
+    }
+  }
+
+  // Real-Time Neon Sine Wave Canvas Animation (Matching Screenshot)
+  function initWaveCanvas() {
+    if (!liveVoiceWaveCanvas) return;
+    const ctx = liveVoiceWaveCanvas.getContext("2d");
+    let width = (liveVoiceWaveCanvas.width = liveVoiceWaveCanvas.parentElement.clientWidth || 800);
+    let height = (liveVoiceWaveCanvas.height = liveVoiceWaveCanvas.parentElement.clientHeight || 320);
+
+    const onResize = () => {
+      if (liveVoiceWaveCanvas && liveVoiceWaveCanvas.parentElement) {
+        width = liveVoiceWaveCanvas.width = liveVoiceWaveCanvas.parentElement.clientWidth || 800;
+        height = liveVoiceWaveCanvas.height = liveVoiceWaveCanvas.parentElement.clientHeight || 320;
+      }
+    };
+    window.addEventListener("resize", onResize);
+
+    let phaseCyan = 0;
+    let phasePink = 1.2;
+    let phasePurple = 2.4;
+
+    function drawSineWave(color, shadowColor, lineWidth, amplitude, freq, phase, verticalOffset = 0) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.shadowColor = shadowColor;
+      ctx.shadowBlur = 18;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+
+      const centerY = height / 2 + verticalOffset;
+      const step = 3;
+
+      for (let x = 0; x <= width; x += step) {
+        // Tapered envelope at borders
+        const envelope = Math.sin((x / width) * Math.PI);
+        const y = centerY + Math.sin(x * freq + phase) * amplitude * envelope;
+        if (x === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      }
+
+      ctx.stroke();
+      ctx.restore();
     }
 
-    isLiveVoiceMode = true;
-    startRecording();
+    function renderLoop() {
+      if (!liveVoiceActive) return;
+      ctx.clearRect(0, 0, width, height);
+
+      let energy = 0;
+      if (analyser && audioDataArray) {
+        try {
+          analyser.getByteFrequencyData(audioDataArray);
+          let sum = 0;
+          for (let i = 0; i < audioDataArray.length; i++) {
+            sum += audioDataArray[i];
+          }
+          energy = sum / audioDataArray.length / 255;
+        } catch (e) {}
+      }
+
+      const isVoiceActive = isRecording || (!audioPlayer.paused && audioPlayer.src);
+      const baseAmp = isVoiceActive ? (32 + energy * 95) : 18;
+      const speed = isVoiceActive ? 0.055 : 0.03;
+
+      phaseCyan += speed * 1.05;
+      phasePink += speed * 1.35;
+      phasePurple += speed * 0.85;
+
+      // 1. Neon Cyan / Blue Wave (Matching Screenshot upper flow)
+      drawSineWave("#00f5ff", "rgba(0, 245, 255, 0.9)", 3.8, baseAmp * 1.2, 0.017, phaseCyan, -6);
+
+      // 2. Neon Magenta / Pink Wave (Matching Screenshot lower intersecting)
+      drawSineWave("#ec4899", "rgba(236, 72, 153, 0.9)", 3.8, baseAmp * 1.1, 0.021, phasePink, 6);
+
+      // 3. Neon Purple / Violet Wave (Harmonic center)
+      drawSineWave("#a855f7", "rgba(168, 85, 247, 0.75)", 2.8, baseAmp * 0.8, 0.026, phasePurple, 0);
+
+      waveAnimId = requestAnimationFrame(renderLoop);
+    }
+
+    if (waveAnimId) cancelAnimationFrame(waveAnimId);
+    waveAnimId = requestAnimationFrame(renderLoop);
+  }
+
+  function attachStreamToAnalyser(stream) {
+    try {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 64;
+      audioDataArray = new Uint8Array(analyser.frequencyBinCount);
+      const src = audioContext.createMediaStreamSource(stream);
+      src.connect(analyser);
+    } catch (e) {
+      console.warn("AudioContext Analyser not available:", e);
+    }
   }
 
   // Voice Recording Logic
@@ -250,6 +477,8 @@
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      attachStreamToAnalyser(stream);
+
       const mimeType = pickSupportedMimeType();
       mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
       audioChunks = [];
@@ -264,7 +493,16 @@
 
       mediaRecorder.start();
       isRecording = true;
-      showRecordingHud(true);
+
+      if (!liveVoiceActive) {
+        showRecordingHud(true);
+      } else {
+        if (liveMainMicBtn) liveMainMicBtn.classList.add("recording");
+        updateLiveStatus("recording", "Listening…");
+        setLiveSubtitle("Listening to you… Speak now");
+        if (liveMicHint) liveMicHint.textContent = "Tap to finish";
+      }
+
       micBtn.classList.add("recording");
       liveVoiceBtn.classList.add("active");
 
@@ -279,6 +517,10 @@
       }, 1000);
     } catch (err) {
       showError("Could not access microphone. Please allow microphone permissions.");
+      if (liveVoiceActive) {
+        setLiveSubtitle("Microphone permission required.");
+        updateLiveStatus("ready", "Error");
+      }
     }
   }
 
@@ -290,10 +532,21 @@
     micBtn.classList.remove("recording");
     liveVoiceBtn.classList.remove("active");
 
+    if (liveVoiceActive) {
+      if (liveMainMicBtn) liveMainMicBtn.classList.remove("recording");
+      updateLiveStatus("thinking", "Thinking…");
+      setLiveSubtitle("Thinking… Reason step-by-step");
+      if (liveMicHint) liveMicHint.textContent = "Processing…";
+    }
+
     mediaRecorder.addEventListener("stop", async () => {
       const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
       if (blob.size === 0) {
         showError("The recording was empty.");
+        if (liveVoiceActive) {
+          setLiveSubtitle("Empty recording. Tap to speak again.");
+          updateLiveStatus("ready", "Ready");
+        }
         return;
       }
       uploadAudioBlob(blob, `recording.${blob.type.includes("mp4") ? "mp4" : "webm"}`);
@@ -309,6 +562,12 @@
     showRecordingHud(false);
     micBtn.classList.remove("recording");
     liveVoiceBtn.classList.remove("active");
+    if (liveVoiceActive) {
+      if (liveMainMicBtn) liveMainMicBtn.classList.remove("recording");
+      updateLiveStatus("ready", "Ready");
+      setLiveSubtitle("Recording canceled.");
+      if (liveMicHint) liveMicHint.textContent = "Tap to speak";
+    }
     audioChunks = [];
     mediaRecorder.stop();
   }
@@ -345,6 +604,12 @@
       updateAssistantMessage(assistantBubble, data.answer, data.audio_url, time, data.transcript);
       saveChatTurn(data.transcript, data.answer, data.audio_url, time);
 
+      if (liveVoiceActive) {
+        setLiveSubtitle(data.transcript ? `"${data.transcript}"` : data.answer.slice(0, 100));
+        updateLiveStatus("speaking", "K P Air Speaking");
+        if (liveMicHint) liveMicHint.textContent = "Playing response";
+      }
+
       if (data.audio_url) {
         const playBtn = assistantBubble.querySelector(".listen-btn");
         playAudio(data.audio_url, playBtn);
@@ -352,6 +617,10 @@
     } catch (err) {
       removeLoadingMessage(assistantBubble);
       showError(err.message || "Voice request failed");
+      if (liveVoiceActive) {
+        setLiveSubtitle(err.message || "Voice request failed");
+        updateLiveStatus("ready", "Ready");
+      }
     } finally {
       isBusy = false;
     }
@@ -410,6 +679,11 @@
     }
     if (!isRecording) {
       liveVoiceBtn.classList.remove("active");
+    }
+    if (liveVoiceActive) {
+      updateLiveStatus("ready", "Ready");
+      if (liveMicHint) liveMicHint.textContent = "Tap to speak";
+      setLiveSubtitle("Tap the microphone to speak with K P Air");
     }
   }
 
@@ -639,7 +913,7 @@
       startThinkingTimer(row);
 
       try {
-        const fullPrompt = isThinking ? `[Think deeply and reason step-by-step]\n${promptToRegenerate}` : promptToRegenerate;
+        const fullPrompt = promptToRegenerate;
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

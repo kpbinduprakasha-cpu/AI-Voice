@@ -104,15 +104,6 @@
             aria-label="Message input"
           ></textarea>
 
-          <!-- Think Toggle Button -->
-          <button class="pill-btn think-btn" id="thinkBtn" type="button" title="Deep Reasoning Mode">
-            <svg class="brain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-5.04z"/>
-              <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-5.04z"/>
-            </svg>
-            <span>Think</span>
-          </button>
-
           <!-- Mic button (Record Voice) -->
           <button class="icon-btn mic-btn" id="micBtn" type="button" title="Speak to K P Air" aria-label="Microphone">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -154,6 +145,70 @@
         </div>
       </div>
     </footer>
+
+    <!-- Dedicated Live Voice Mode Page / Screen (Matching Screenshot) -->
+    <div class="live-voice-page hidden" id="liveVoicePage" role="dialog" aria-modal="true" aria-label="Live Voice Mode">
+      <!-- Ambient background lighting -->
+      <div class="live-voice-bg"></div>
+
+      <!-- Top Header Bar -->
+      <header class="live-voice-header">
+        <button class="live-voice-exit-btn" id="liveVoiceExitBtn" type="button" aria-label="Exit Live Voice" title="Back to Chat">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          <span>Chat</span>
+        </button>
+
+        <!-- Top Timer (matching screenshot ⏱ 00:00:45) -->
+        <div class="live-voice-timer-badge">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          <span id="liveVoiceTimer">00:00:00</span>
+        </div>
+
+        <div class="live-voice-status-pill" id="liveVoiceStatusPill">
+          <span class="live-status-dot"></span>
+          <span id="liveVoiceStatusText">Ready</span>
+        </div>
+      </header>
+
+      <!-- Center Waveform Visualization Section -->
+      <main class="live-voice-main">
+        <div class="live-wave-container">
+          <canvas id="liveVoiceWaveCanvas" width="900" height="340"></canvas>
+        </div>
+
+        <!-- Live Subtitle / Feedback Pill -->
+        <div class="live-subtitle-container" id="liveSubtitleContainer">
+          <p class="live-subtitle-text" id="liveSubtitleText">Tap the microphone to speak with K P Air</p>
+        </div>
+      </main>
+
+      <!-- Bottom Microphone Button Section (Matching Screenshot) -->
+      <footer class="live-voice-footer">
+        <div class="live-mic-wrapper">
+          <!-- Concentric pulsing glowing ripple rings -->
+          <div class="live-mic-ripple live-ripple-1"></div>
+          <div class="live-mic-ripple live-ripple-2"></div>
+          <div class="live-mic-ripple live-ripple-3"></div>
+          <div class="live-mic-ripple live-ripple-4"></div>
+
+          <!-- Central Gradient Microphone Button with Motion -->
+          <button class="live-main-mic-btn" id="liveMainMicBtn" type="button" aria-label="Toggle Live Microphone" title="Tap to speak / finish">
+            <svg class="live-mic-svg" viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" x2="12" y1="19" y2="22"/>
+            </svg>
+          </button>
+        </div>
+        <div class="live-mic-hint" id="liveMicHint">Tap to speak</div>
+      </footer>
+    </div>
 
     <script src="/static/js/app.js"></script>
   </body>

@@ -83,6 +83,7 @@ async def handle_unexpected_error(_request: Request, exc: Exception) -> JSONResp
     )
 
 
+@app.get("/live", response_class=HTMLResponse)
 @app.get("/", response_class=HTMLResponse)
 async def index() -> HTMLResponse:
     # Render the template with simple replacement so Python 3.14 does not

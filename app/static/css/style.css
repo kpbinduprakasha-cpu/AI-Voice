@@ -1391,3 +1391,328 @@ body.theme-day .inline-code {
     border: 1px solid #e5e7eb !important;
   }
 }
+
+/* ==========================================================================
+   Dedicated Live Voice Mode Page (Matching Screenshot)
+   ========================================================================== */
+.live-voice-page {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1000;
+  background-color: #070913;
+  background-image: 
+    radial-gradient(circle at 50% 35%, rgba(56, 189, 248, 0.09) 0%, transparent 60%),
+    radial-gradient(circle at 50% 75%, rgba(236, 72, 153, 0.1) 0%, transparent 55%),
+    linear-gradient(180deg, #05070f 0%, #080c1b 50%, #03050a 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 20px 48px;
+  overflow: hidden;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.live-voice-page.hidden {
+  display: none !important;
+}
+
+/* Ambient Background Glow */
+.live-voice-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.05) 0%, transparent 70%);
+}
+
+/* Top Header Bar */
+.live-voice-header {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 10;
+}
+
+.live-voice-exit-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #f4f4f5;
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.live-voice-exit-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Top Timer Badge (Matching screenshot ⏱ 00:00:45) */
+.live-voice-timer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px 18px;
+  border-radius: 9999px;
+  color: #e4e4e7;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(10px);
+}
+
+.live-voice-timer-badge svg {
+  color: #38bdf8;
+}
+
+.live-voice-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #a1a1aa;
+}
+
+.live-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #22c55e;
+  box-shadow: 0 0 10px #22c55e;
+  transition: all 0.2s ease;
+}
+
+.live-voice-status-pill.recording .live-status-dot {
+  background-color: #ec4899;
+  box-shadow: 0 0 12px #ec4899;
+  animation: liveStatusPulse 1.2s infinite ease-in-out;
+}
+
+.live-voice-status-pill.speaking .live-status-dot {
+  background-color: #06b6d4;
+  box-shadow: 0 0 12px #06b6d4;
+  animation: liveStatusPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes liveStatusPulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.4); opacity: 1; }
+}
+
+/* Center Waveform Visualization Section */
+.live-voice-main {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+
+.live-wave-container {
+  width: 100%;
+  max-width: 840px;
+  height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+#liveVoiceWaveCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Subtitle / Feedback Text */
+.live-subtitle-container {
+  margin-top: 10px;
+  max-width: 650px;
+  text-align: center;
+  padding: 10px 20px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.live-subtitle-text {
+  font-size: 17.5px;
+  line-height: 1.6;
+  color: #d4d4d8;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease;
+}
+
+/* Bottom Microphone Button Section (Matching Screenshot) */
+.live-voice-footer {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  z-index: 10;
+}
+
+.live-mic-wrapper {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Concentric Animated Glowing Ripple Rings */
+.live-mic-ripple {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.live-ripple-1 {
+  width: 105px;
+  height: 105px;
+  border: 1.5px solid rgba(6, 182, 212, 0.55);
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.35);
+  animation: liveRippleMotion 3s infinite ease-in-out;
+}
+
+.live-ripple-2 {
+  width: 135px;
+  height: 135px;
+  border: 1.5px solid rgba(168, 85, 247, 0.45);
+  box-shadow: 0 0 22px rgba(168, 85, 247, 0.28);
+  animation: liveRippleMotion 3s infinite ease-in-out 0.75s;
+}
+
+.live-ripple-3 {
+  width: 168px;
+  height: 168px;
+  border: 1.5px solid rgba(236, 72, 153, 0.4);
+  box-shadow: 0 0 28px rgba(236, 72, 153, 0.25);
+  animation: liveRippleMotion 3s infinite ease-in-out 1.5s;
+}
+
+.live-ripple-4 {
+  width: 204px;
+  height: 204px;
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  box-shadow: 0 0 35px rgba(6, 182, 212, 0.18);
+  animation: liveRippleMotion 3s infinite ease-in-out 2.25s;
+}
+
+@keyframes liveRippleMotion {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(0.92);
+    opacity: 0.3;
+  }
+}
+
+/* Central Gradient Microphone Button with Floating Motion */
+.live-main-mic-btn {
+  position: relative;
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 50%, #ec4899 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 25px rgba(236, 72, 153, 0.55), 0 0 50px rgba(6, 182, 212, 0.4);
+  z-index: 5;
+  outline: none;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: liveMicButtonFloat 2.6s ease-in-out infinite;
+}
+
+.live-main-mic-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 35px rgba(236, 72, 153, 0.8), 0 0 65px rgba(6, 182, 212, 0.6);
+}
+
+.live-main-mic-btn:active {
+  transform: scale(0.95);
+}
+
+@keyframes liveMicButtonFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 0 25px rgba(236, 72, 153, 0.55), 0 0 50px rgba(6, 182, 212, 0.4);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.04);
+    box-shadow: 0 0 38px rgba(236, 72, 153, 0.8), 0 0 70px rgba(6, 182, 212, 0.6);
+  }
+}
+
+.live-main-mic-btn.recording {
+  animation: liveMicRecordingPulse 1.3s infinite ease-in-out;
+  background: linear-gradient(135deg, #00f5ff 0%, #d946ef 100%);
+}
+
+@keyframes liveMicRecordingPulse {
+  0%, 100% {
+    transform: scale(1.06);
+    box-shadow: 0 0 32px rgba(236, 72, 153, 0.85), 0 0 65px rgba(6, 182, 212, 0.65);
+  }
+  50% {
+    transform: scale(1.18);
+    box-shadow: 0 0 55px rgba(236, 72, 153, 1), 0 0 95px rgba(6, 182, 212, 0.85);
+  }
+}
+
+.live-mic-svg {
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+  transition: transform 0.2s ease;
+}
+
+.live-mic-hint {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #a1a1aa;
+  text-transform: uppercase;
+}

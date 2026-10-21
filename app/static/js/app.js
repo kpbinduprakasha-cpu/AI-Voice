@@ -362,6 +362,7 @@
     };
     window.addEventListener("resize", onResize);
 
+    let currentAmp = 0;
     let phaseCyan = 0;
     let phasePink = 1.2;
     let phasePurple = 2.4;
@@ -371,7 +372,7 @@
       ctx.strokeStyle = color;
       ctx.lineWidth = lineWidth;
       ctx.shadowColor = shadowColor;
-      ctx.shadowBlur = 18;
+      ctx.shadowBlur = amplitude > 0 ? 18 : 10;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.beginPath();
@@ -398,40 +399,121 @@
       if (!liveVoiceActive) return;
       ctx.clearRect(0, 0, width, height);
 
-      let energy = 0;
-      if (analyser && audioDataArray) {
+      let targetAmp = 0;
+      let isSpeakingNow = false;
+
+      // 1. Check microphone voice volume (when user is speaking)
+      if (isRecording && analyser && audioDataArray) {
         try {
           analyser.getByteFrequencyData(audioDataArray);
-          let sum = 0;
+          let maxVal = 0;
           for (let i = 0; i < audioDataArray.length; i++) {
-            sum += audioDataArray[i];
+            if (audioDataArray[i] > maxVal) maxVal = audioDataArray[i];
           }
-          energy = sum / audioDataArray.length / 255;
+          // Ambient background noise floor threshold
+          const noiseThreshold = 18;
+          if (maxVal > noiseThreshold) {
+            const normalized = Math.min(1.0, (maxVal - noiseThreshold) / 75);
+            targetAmp = 22 + normalized * 85;
+            isSpeakingNow = true;
+          }
         } catch (e) {}
       }
 
-      const isVoiceActive = isRecording || (!audioPlayer.paused && audioPlayer.src);
-      const baseAmp = isVoiceActive ? (32 + energy * 95) : 18;
-      const speed = isVoiceActive ? 0.055 : 0.03;
+      // 2. Check assistant speech output (when K P Air speaks audio)
+      if (!audioPlayer.paused && audioPlayer.src) {
+        let playEnergy = 0;
+        if (analyser && audioDataArray) {
+          try {
+            analyser.getByteFrequencyData(audioDataArray);
+            let maxVal = 0;
+            for (let i = 0; i < audioDataArray.length; i++) {
+              if (audioDataArray[i] > maxVal) maxVal = audioDataArray[i];
+            }
+            if (maxVal > 15) {
+              playEnergy = Math.min(1.0, (maxVal - 15) / 75);
+            }
+          } catch (e) {}
+        }
+        if (playEnergy > 0) {
+          targetAmp = 24 + playEnergy * 78;
+          isSpeakingNow = true;
+        } else {
+          // Dynamic vocal pulse cadence while speech audio is playing
+          const cadence = Math.abs(Math.sin(Date.now() / 150)) * 0.6 + Math.abs(Math.cos(Date.now() / 270)) * 0.4;
+          targetAmp = 24 + cadence * 56;
+          isSpeakingNow = true;
+        }
+      }
 
-      phaseCyan += speed * 1.05;
-      phasePink += speed * 1.35;
-      phasePurple += speed * 0.85;
+      // 3. Smooth transition (fast attack on speech, smooth decay on silence)
+      if (targetAmp > currentAmp) {
+        currentAmp += (targetAmp - currentAmp) * 0.35;
+      } else {
+        currentAmp += (targetAmp - currentAmp) * 0.12;
+      }
+
+      // Snap cleanly to 0 on silence so wave stops vibrating completely
+      if (currentAmp < 0.6) {
+        currentAmp = 0;
+      }
+
+      // Toggle speaking-active class on live page for bottom button ripples
+      if (liveVoicePage) {
+        liveVoicePage.classList.toggle("speaking-active", isSpeakingNow || currentAmp > 1);
+      }
+
+      // Wave motion / momentum: ONLY moves if currentAmp > 0; otherwise 0 movement
+      if (currentAmp > 0) {
+        const speed = 0.035 + (currentAmp / 100) * 0.05;
+        phaseCyan += speed * 1.05;
+        phasePink += speed * 1.35;
+        phasePurple += speed * 0.85;
+      }
+
+      // Vertical separation between the 3 colored beams (collapses to 0 when flat!)
+      const sep = Math.min(1.0, currentAmp / 12);
+      const offsetTop = -6 * sep;
+      const offsetBottom = 6 * sep;
 
       // 1. Neon Cyan / Blue Wave (Matching Screenshot upper flow)
-      drawSineWave("#00f5ff", "rgba(0, 245, 255, 0.9)", 3.8, baseAmp * 1.2, 0.017, phaseCyan, -6);
+      drawSineWave("#00f5ff", "rgba(0, 245, 255, 0.9)", 3.8, currentAmp * 1.15, 0.017, phaseCyan, offsetTop);
 
       // 2. Neon Magenta / Pink Wave (Matching Screenshot lower intersecting)
-      drawSineWave("#ec4899", "rgba(236, 72, 153, 0.9)", 3.8, baseAmp * 1.1, 0.021, phasePink, 6);
+      drawSineWave("#ec4899", "rgba(236, 72, 153, 0.9)", 3.8, currentAmp * 1.05, 0.021, phasePink, offsetBottom);
 
       // 3. Neon Purple / Violet Wave (Harmonic center)
-      drawSineWave("#a855f7", "rgba(168, 85, 247, 0.75)", 2.8, baseAmp * 0.8, 0.026, phasePurple, 0);
+      drawSineWave("#a855f7", "rgba(168, 85, 247, 0.75)", 2.8, currentAmp * 0.8, 0.026, phasePurple, 0);
 
       waveAnimId = requestAnimationFrame(renderLoop);
     }
 
     if (waveAnimId) cancelAnimationFrame(waveAnimId);
     waveAnimId = requestAnimationFrame(renderLoop);
+  }
+
+  let audioPlayerConnected = false;
+  function ensureAudioPlayerAnalyser() {
+    if (audioPlayerConnected || !audioPlayer) return;
+    try {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioContext.state === "suspended") {
+        audioContext.resume();
+      }
+      if (!analyser) {
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 64;
+        audioDataArray = new Uint8Array(analyser.frequencyBinCount);
+      }
+      const playerSrcNode = audioContext.createMediaElementSource(audioPlayer);
+      playerSrcNode.connect(analyser);
+      playerSrcNode.connect(audioContext.destination);
+      audioPlayerConnected = true;
+    } catch (e) {
+      audioPlayerConnected = true;
+    }
   }
 
   function attachStreamToAnalyser(stream) {
@@ -649,6 +731,7 @@
       setButtonPlaying(activeAudioBtn, false);
     }
 
+    ensureAudioPlayerAnalyser();
     audioPlayer.src = url;
     audioPlayer.play().then(() => {
       activeAudioBtn = btnElement;
